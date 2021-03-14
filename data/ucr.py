@@ -1,4 +1,5 @@
 import os
+import pprint
 import time
 from collections import defaultdict
 
@@ -72,6 +73,9 @@ def cache_UCR(root_path: str, num_workers=None):
         if len(dnames) > 0 and dnames[-1].startswith(dname):
             dnames.pop()
         dnames.append(dname)
+
+    pprint.pprint(dnames)
+    pprint.pprint(len(dnames))
     
     assert len(dnames) == 127
     for it, dname in enumerate(dnames):
