@@ -1,5 +1,4 @@
 EMD-signal
 tqdm
 colorama
-seaborn
 tensorboardX
