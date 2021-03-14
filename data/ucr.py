@@ -67,7 +67,8 @@ def cache_UCR(root_path: str, num_workers=None):
             os.makedirs(f'{cached_root}_{name}')
     
     ratios = defaultdict(int)
-    for it, dname in enumerate(os.listdir(root_path)):
+    dnames = sorted(os.listdir(root_path))
+    for it, dname in enumerate(dnames):
         # if len(dname) < 6:
         #     continue
         for eemd, name in zip([True, False], emd_names):
