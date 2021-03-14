@@ -1,5 +1,5 @@
 DIR_NAME="${PWD##*/}"
-REL_PATH=../../../
+REL_PATH=../../
 CUR_PATH=$(pwd)
 cd "${REL_PATH}"
 PROJ_PATH=$(pwd)
