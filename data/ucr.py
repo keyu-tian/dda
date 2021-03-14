@@ -67,11 +67,17 @@ def cache_UCR(root_path: str, num_workers=None):
             os.makedirs(f'{cached_root}_{name}')
     
     ratios = defaultdict(int)
-    dnames = sorted(os.listdir(root_path))
+    dnames = []
+    for dname in sorted(os.listdir(root_path)):
+        if len(dnames) > 0 and dnames[-1].startswith(dname):
+            dnames.pop()
+        dnames.append(dname)
+    
     assert len(dnames) == 127
     for it, dname in enumerate(dnames):
         # if len(dname) < 6:
         #     continue
+        dname = dname.replace(' (1)', '')
         for eemd, name in zip([True, False], emd_names):
             cache_fname = os.path.join(f'{cached_root}_{name}', f'{dname}.pth')
             if os.path.exists(cache_fname):
