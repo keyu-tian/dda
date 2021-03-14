@@ -68,7 +68,7 @@ def cache_UCR(root_path: str, num_workers=None):
     
     ratios = defaultdict(int)
     dnames = sorted(os.listdir(root_path))
-    assert len(dnames) == 137
+    assert len(dnames) == 127
     for it, dname in enumerate(dnames):
         # if len(dname) < 6:
         #     continue
