@@ -70,7 +70,7 @@ def cache_UCR(root_path: str, num_workers=None):
     ratios = defaultdict(int)
     dnames = []
     for dname in sorted(os.listdir(root_path)):
-        if len(dnames) > 0 and dnames[-1].startswith(dname):
+        if len(dnames) > 0 and dname.startswith(dnames[-1]):
             dnames.pop()
         dnames.append(dname)
 
