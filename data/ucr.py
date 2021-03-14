@@ -74,10 +74,11 @@ def cache_UCR(root_path: str, num_workers=None):
             dnames.pop()
         dnames.append(dname)
 
-    pprint.pprint(dnames)
-    pprint.pprint(len(dnames))
+    if len(dnames) != 127:
+        pprint.pprint(dnames)
+        pprint.pprint(len(dnames))
+        raise AttributeError
     
-    assert len(dnames) == 127
     for it, dname in enumerate(dnames):
         # if len(dname) < 6:
         #     continue
