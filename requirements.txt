@@ -1,0 +1,4 @@
+EMD-signal
+tqdm
+colorama
+seaborn
