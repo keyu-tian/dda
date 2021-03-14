@@ -7,7 +7,7 @@ from PyEMD import EEMD, CEEMDAN
 
 
 def emd(signal: np.ndarray, eemd=True, num_workers=None) -> Tuple[np.ndarray, np.ndarray]:
-    kw = {}
+    kw = dict(trials=25)
     if num_workers is not None:
         kw['parallel'] = True
         kw['processes'] = num_workers

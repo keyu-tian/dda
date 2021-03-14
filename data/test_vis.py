@@ -9,7 +9,7 @@ from utils.misc import set_seed
 
 set_seed(0)
 data_set = UCRTensorDataSet(
-    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', 'ACSF1',
+    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', 'AllGestureWiimoteX',
     train=True, emd=False
 )
 
@@ -39,7 +39,7 @@ EMD_clz = [
 ]
 
 for clz, clz_name in EMD_clz:
-    emd = clz(trials=100)
+    emd = clz(trials=20)
     
     # Execute EEMD on S
     eIMFs = emd(S)
