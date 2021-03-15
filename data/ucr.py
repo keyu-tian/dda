@@ -61,7 +61,7 @@ def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', n
     }, avg_ratio
 
 
-def cache_UCR(root_path: str, num_workers=None):
+def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
     cached_root = os.path.join(os.path.split(root_path)[0], 'UCRTensorData')
     emd_names = ['EEMD', 'CEEM']
     for name in emd_names:
@@ -75,6 +75,12 @@ def cache_UCR(root_path: str, num_workers=None):
             dnames.pop()
         dnames.append(dname)
 
+    fold = [
+        ['Worms', 'NonInvasiveFetalECGThorax1', 'ECGFiveDays', 'Computers', 'UWaveGestureLibraryX', 'Earthquakes', 'SemgHandSubjectCh2', 'Phoneme', 'SonyAIBORobotSurface2', 'PickupGestureWiimoteZ', 'ArrowHead', 'ToeSegmentation1', 'GunPoint', 'FiftyWords', 'InsectWingbeatSound', 'ElectricDevices', 'Beef', 'DiatomSizeReduction', 'CinCECGTorso', 'MiddlePhalanxOutlineCorrect', 'EOGVerticalSignal', 'PhalangesOutlinesCorrect', 'PigAirwayPressure', 'GunPointMaleVersusFemale', 'OSULeaf', 'SyntheticControl', 'GunPointAgeSpan', 'Ham', 'MoteStrain', 'HandOutlines', 'Mallat', 'Chinatown', 'SonyAIBORobotSurface1', 'EthanolLevel', 'MelbournePedestrian', 'FordB', 'MixedShapesRegularTrain', 'PigCVP', 'FreezerRegularTrain', 'GestureMidAirD2', 'FaceAll', 'Wafer'],
+        ['ACSF1', 'Meat', 'DistalPhalanxOutlineCorrect', 'SmallKitchenAppliances', 'DistalPhalanxTW', 'AllGestureWiimoteX', 'MiddlePhalanxOutlineAgeGroup', 'Strawberry', 'ToeSegmentation2', 'Plane', 'InsectEPGRegularTrain', 'HouseTwenty', 'OliveOil', 'UWaveGestureLibraryY', 'ProximalPhalanxOutlineCorrect', 'Coffee', 'Yoga', 'ChlorineConcentration', 'WordSynonyms', 'PLAID', 'Wine', 'Trace', 'UWaveGestureLibraryZ', 'SmoothSubspace', 'ECG200', 'ECG5000', 'InsectEPGSmallTrain', 'Herring', 'Fungi', 'UWaveGestureLibraryAll', 'SwedishLeaf', 'DodgerLoopDay', 'Crop', 'NonInvasiveFetalECGThorax2', 'FacesUCR', 'PigArtPressure', 'BeetleFly', 'BME', 'Adiac', 'FaceFour', 'FreezerSmallTrain', 'AllGestureWiimoteY', 'GesturePebbleZ2'],
+        ['ScreenType', 'StarLightCurves', 'CricketX', 'MiddlePhalanxTW', 'FordA', 'CBF', 'LargeKitchenAppliances', 'BirdChicken', 'ShakeGestureWiimoteZ', 'WormsTwoClass', 'Rock', 'DodgerLoopGame', 'GestureMidAirD3', 'SemgHandGenderCh2', 'ProximalPhalanxTW', 'Haptics', 'Lightning7', 'DistalPhalanxOutlineAgeGroup', 'EOGHorizontalSignal', 'TwoPatterns', 'Lightning2', 'CricketY', 'CricketZ', 'PowerCons', 'AllGestureWiimoteZ', 'ProximalPhalanxOutlineAgeGroup', 'TwoLeadECG', 'ShapeletSim', 'GestureMidAirD1', 'InlineSkate', 'MedicalImages', 'DodgerLoopWeekend', 'RefrigerationDevices', 'Symbols', 'SemgHandMovementCh2', 'ShapesAll', 'GesturePebbleZ1', 'Car', 'GunPointOldVersusYoung', 'Fish', 'UMD', 'ItalyPowerDemand']
+    ][fold_idx]
+
     if len(dnames) != 127:
         pprint.pprint(dnames)
         pprint.pprint(len(dnames))
@@ -84,6 +90,8 @@ def cache_UCR(root_path: str, num_workers=None):
         # if len(dname) < 6:
         #     continue
         dname = dname.replace(' (1)', '')
+        if dname not in fold:
+            continue
         for eemd, name in zip([True, False], emd_names):
             cache_fname = os.path.join(f'{cached_root}_{name}', f'{dname}.pth')
             if os.path.exists(cache_fname):

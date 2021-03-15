@@ -10,13 +10,14 @@ def main():
     colorama.init(autoreset=True)
     ucr_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'datasets', 'UCRArchive_2018'))
     num_workers = None
+    fold_idx = int(sys.argv[1])
     l = len(sys.argv)
-    if l >= 2:
-        ucr_path = sys.argv[1]
-    if l >= 3 and sys.argv[2] != 'None':
-        num_workers = int(sys.argv[2])
+    if l >= 3:
+        ucr_path = sys.argv[2]
+    if l >= 4 and sys.argv[3] != 'None':
+        num_workers = int(sys.argv[3])
     
-    cache_UCR(ucr_path, num_workers)
+    cache_UCR(ucr_path, fold_idx, num_workers)
     
     
 if __name__ == '__main__':

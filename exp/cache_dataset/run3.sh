@@ -6,4 +6,4 @@ PROJ_PATH=$(pwd)
 cd "${CUR_PATH}"
 
 PYTHONPATH=${PYTHONPATH}:${REL_PATH} \
-python -u -m cache "/content/drive/MyDrive/datasets/UCRArchive_2018" "${1:-"None"}"
+python -u -m cache 2 "/content/drive/MyDrive/datasets/UCRArchive_2018" "${1:-"None"}"
