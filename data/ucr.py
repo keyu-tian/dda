@@ -57,6 +57,7 @@ def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', n
         'test_data': t(te_data),
         'test_label': t(te_labels),
         'num_classes': num_classes,
+        'ratio': avg_ratio,
     }, avg_ratio
 
 
