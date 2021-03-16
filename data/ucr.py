@@ -14,8 +14,8 @@ from utils.misc import time_str
 
 
 def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', num_workers=None):
-    tr_path = os.path.join(root_path, dname, f'{dname}_TRAIN.tsv')
-    te_path = os.path.join(root_path, dname, f'{dname}_TEST.tsv')
+    tr_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TRAIN.tsv')
+    te_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TEST.tsv')
 
     def get_dl(path):
         items = np.loadtxt(path, delimiter='\t', dtype=np.float32) # [:8]  # todo: rm[:4]
@@ -86,10 +86,10 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
         pprint.pprint(len(dnames))
         raise AttributeError
     
-    for it, dname in enumerate(dnames):
+    for it, org_dname in enumerate(dnames):
         # if len(dname) < 6:
         #     continue
-        dname = dname.replace(' (1)', '')
+        dname = org_dname.replace(' (1)', '')
         if dname not in fold:
             continue
         for eemd, name in zip([True, False], emd_names):
@@ -97,7 +97,7 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
             if os.path.exists(cache_fname):
                 print(f'{time_str()}[{dname}.{name}] already cached')
             else:
-                desc, ratio = __read_data(root_path, dname, normalize=True, eemd=eemd, eemd_name=name, num_workers=num_workers)
+                desc, ratio = __read_data(root_path, org_dname, normalize=True, eemd=eemd, eemd_name=name, num_workers=num_workers)
                 ratios[name] += ratio
                 torch.save(desc, cache_fname)
                 print(f'{time_str()}[{dname}.{name}] '
