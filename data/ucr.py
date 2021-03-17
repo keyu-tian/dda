@@ -13,12 +13,15 @@ from data.aug import emd
 from utils.misc import time_str
 
 
+ALL_NAMES = {'ACSF1', 'Adiac', 'AllGestureWiimoteX', 'AllGestureWiimoteY', 'AllGestureWiimoteZ', 'ArrowHead', 'BME', 'Beef', 'BeetleFly', 'BirdChicken', 'CBF', 'Car', 'Chinatown', 'ChlorineConcentration', 'CinCECGTorso', 'Coffee', 'Computers', 'CricketX', 'CricketY', 'CricketZ', 'Crop', 'DiatomSizeReduction', 'DistalPhalanxOutlineAgeGroup', 'DistalPhalanxOutlineCorrect', 'DistalPhalanxTW', 'DodgerLoopDay', 'DodgerLoopGame', 'DodgerLoopWeekend', 'ECG200', 'ECG5000', 'ECGFiveDays', 'EOGHorizontalSignal', 'EOGVerticalSignal', 'Earthquakes', 'ElectricDevices', 'EthanolLevel', 'FaceAll', 'FaceFour', 'FacesUCR', 'FiftyWords', 'Fish', 'FordA', 'FordB', 'FreezerRegularTrain', 'FreezerSmallTrain', 'Fungi', 'GestureMidAirD1', 'GestureMidAirD2', 'GestureMidAirD3', 'GesturePebbleZ1', 'GesturePebbleZ2', 'GunPoint', 'GunPointAgeSpan', 'GunPointMaleVersusFemale', 'GunPointOldVersusYoung', 'Ham', 'HandOutlines', 'Haptics', 'Herring', 'HouseTwenty', 'InlineSkate', 'InsectEPGRegularTrain', 'InsectEPGSmallTrain', 'InsectWingbeatSound', 'ItalyPowerDemand', 'LargeKitchenAppliances', 'Lightning2', 'Lightning7', 'Mallat', 'Meat', 'MedicalImages', 'MelbournePedestrian', 'MiddlePhalanxOutlineAgeGroup', 'MiddlePhalanxOutlineCorrect', 'MiddlePhalanxTW', 'MixedShapesRegularTrain', 'MoteStrain', 'NonInvasiveFetalECGThorax1', 'NonInvasiveFetalECGThorax2', 'OSULeaf', 'OliveOil', 'PLAID', 'PhalangesOutlinesCorrect', 'Phoneme', 'PickupGestureWiimoteZ', 'PigAirwayPressure', 'PigArtPressure', 'PigCVP', 'Plane', 'PowerCons', 'ProximalPhalanxOutlineAgeGroup', 'ProximalPhalanxOutlineCorrect', 'ProximalPhalanxTW', 'RefrigerationDevices', 'Rock', 'ScreenType', 'SemgHandGenderCh2', 'SemgHandMovementCh2', 'SemgHandSubjectCh2', 'ShakeGestureWiimoteZ', 'ShapeletSim', 'ShapesAll', 'SmallKitchenAppliances', 'SmoothSubspace', 'SonyAIBORobotSurface1', 'SonyAIBORobotSurface2', 'StarLightCurves', 'Strawberry', 'SwedishLeaf', 'Symbols', 'SyntheticControl', 'ToeSegmentation1', 'ToeSegmentation2', 'Trace', 'TwoLeadECG', 'TwoPatterns', 'UMD', 'UWaveGestureLibraryAll', 'UWaveGestureLibraryX', 'UWaveGestureLibraryY', 'UWaveGestureLibraryZ', 'Wafer', 'Wine', 'WordSynonyms', 'Worms', 'WormsTwoClass', 'Yoga'}
+
+
 def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', num_workers=None):
     tr_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TRAIN.tsv')
     te_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TEST.tsv')
 
     def get_dl(path):
-        items = np.loadtxt(path, delimiter='\t', dtype=np.float32) # [:8]  # todo: rm[:4]
+        items = np.loadtxt(path, delimiter='\t', dtype=np.float32)
         items = items[np.lexsort(items[:, ::-1].T)]
         data, labels = items[:, 1:], items[:, 0].astype(np.long)
         if labels.min().item() == 1:
@@ -114,126 +117,19 @@ class UCRTensorDataSet(TensorDataset):
     def __init__(self, tensor_data_root_path: str, set_name: str, train: bool, emd: bool):
         desc = torch.load(os.path.join(tensor_data_root_path, f'{set_name}.pth'), map_location='cpu')
         if train:
-            time_series_k = 'train_emd' if emd else 'train_data'
-            labels_k = 'train_label'
+            if emd:
+                data, tar = desc['train_emd'], desc['train_label']
+                tensors = data[:, 0], data[:, 1], tar
+            else:
+                tensors = desc['train_data'], desc['train_label']
         else:
-            time_series_k, labels_k = 'test_data', 'test_label'
+            tensors = desc['test_data'], desc['test_label']
+        for i, t in enumerate(tensors[::-1]):
+            if i > 0:
+                t.unsqueeze_(dim=1)
+                # data: (data_len, 1, input_size)
+                # tar:  (data_len,)
+        print(f'shapes={[t.shape for t in tensors]}')
+        self.input_size = int(tensors[0].shape[-1])
         self.num_classes = desc['num_classes']
-        super().__init__(desc[time_series_k], desc[labels_k])
-
-
-if __name__ == '__main__':
-    tr_emd = UCRTensorDataSet(r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData', 'Adiac', train=True, emd=True)
-    tr = UCRTensorDataSet(r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData', 'Adiac', train=True, emd=False)
-
-# class UCRDataset():
-#     def __init__(self, data_path: str, train_ratio: float, normalize: bool, num_of_dataset=127, data_name_list=[]):
-#         self.dict = {}
-#         cur_num_of_dataset = 0
-#         for dname in os.listdir(data_path):
-#             if os.path.isdir(os.path.join(data_path, dname)) and (len(data_name_list) == 0 or dname in data_name_list):
-#                 train_and_valid_data = self.__sortByCategory(
-#                     np.loadtxt(os.path.join(data_path, dname, dname + '_TRAIN.tsv'), delimiter='\t', dtype=np.float32))
-#                 test_data = self.__sortByCategory(
-#                     np.loadtxt(os.path.join(data_path, dname, dname + '_TEST.tsv'), delimiter='\t', dtype=np.float32))
-#
-#                 train_and_valid_signals = torch.from_numpy(train_and_valid_data[:, 1:]).float()
-#                 train_and_valid_labels = torch.from_numpy(train_and_valid_data[:, 0]).long()
-#
-#                 test_signals = torch.from_numpy(test_data[:, 1:]).float()
-#                 test_labels = torch.from_numpy(test_data[:, 0]).long()
-#
-#                 if train_and_valid_data[0][0] == 1:
-#                     train_and_valid_labels = train_and_valid_labels - 1
-#                     test_labels = test_labels - 1
-#
-#                 if normalize:
-#                     train_and_valid_signals = (train_and_valid_signals - torch.mean(
-#                         train_and_valid_signals)) / torch.std(train_and_valid_signals)
-#                     test_signals = (test_signals - torch.mean(test_signals)) / torch.std(test_signals)
-#
-#                 # print(train_and_valid_signals)
-#                 num_classes = train_and_valid_labels[-1].item() - train_and_valid_labels[0].item() + 1
-#                 cur_category = 0
-#                 former_pos = 0
-#                 for cur_pos in range(len(train_and_valid_signals)):
-#                     if train_and_valid_labels[cur_pos].item() > cur_category:
-#                         num = cur_pos - former_pos
-#                         train_num = round(num * train_ratio)
-#                         # valid_num = num - train_num
-#                         if cur_category == 0:
-#                             train_signals = train_and_valid_signals[former_pos: former_pos + train_num]
-#                             train_labels = train_and_valid_labels[former_pos: former_pos + train_num]
-#
-#                             valid_signals = train_and_valid_signals[former_pos + train_num: cur_pos]
-#                             valid_labels = train_and_valid_labels[former_pos + train_num: cur_pos]
-#                         else:
-#                             train_signals = torch.cat(
-#                                 (train_signals, train_and_valid_signals[former_pos: former_pos + train_num]), 0)
-#                             train_labels = torch.cat(
-#                                 (train_labels, train_and_valid_labels[former_pos: former_pos + train_num]), 0)
-#
-#                             valid_signals = torch.cat(
-#                                 (valid_signals, train_and_valid_signals[former_pos + train_num: cur_pos]), 0)
-#                             valid_labels = torch.cat(
-#                                 (valid_labels, train_and_valid_labels[former_pos + train_num: cur_pos]), 0)
-#                         cur_category = train_and_valid_labels[cur_pos].item()
-#                         former_pos = cur_pos
-#
-#                 num = len(train_and_valid_signals) - former_pos
-#                 train_num = round(num * train_ratio)
-#                 # valid_num = num - train_num
-#                 train_signals = torch.cat(
-#                     (train_signals, train_and_valid_signals[former_pos: former_pos + train_num]), 0)
-#                 train_labels = torch.cat(
-#                     (train_labels, train_and_valid_labels[former_pos: former_pos + train_num]), 0)
-#
-#                 valid_signals = torch.cat(
-#                     (valid_signals, train_and_valid_signals[former_pos + train_num: cur_pos + 1]), 0)
-#                 valid_labels = torch.cat(
-#                     (valid_labels, train_and_valid_labels[former_pos + train_num: cur_pos + 1]), 0)
-#             # print(train_signals)
-#                 self.dict[dname] = {
-#                     'num_classes': num_classes,
-#                     'train': torch.utils.data.TensorDataset(train_signals, train_labels),
-#                     'valid': torch.utils.data.TensorDataset(valid_signals, valid_labels),
-#                     'test': torch.utils.data.TensorDataset(test_signals, test_labels),
-#                 }
-#                 cur_num_of_dataset = cur_num_of_dataset + 1
-#                 if cur_num_of_dataset == num_of_dataset:
-#                     break
-#
-#     def getDatasetByName(self, name):
-#         return self.dict[name]
-#
-#     def getNameList(self):
-#         return self.dict.keys()
-#
-#     def getAllDataset(self):
-#         return self.dict
-#
-#     def __sortByCategory(self, data):
-#         # print(data)
-#         reverse_transpose = data[:, ::-1].T
-#         index = np.lexsort(reverse_transpose)
-#         # print(data[index])
-#         return data[index]
-
-
-# if __name__ == '__main__':
-#     ucrDataset = UCRDataset(
-#         data_path='UCRArchive_2018',
-#         normalize=True,
-#         train_ratio=0.5,
-#     )
-#     print(ucrDataset.getDatasetByName('DistalPhalanxTW')['num_classes'])
-#     print(ucrDataset.getDatasetByName('DistalPhalanxTW')['train'][:])
-#     print(ucrDataset.getDatasetByName('DistalPhalanxTW')['valid'][:])
-#     print(ucrDataset.getDatasetByName('DistalPhalanxTW')['test'][:])
-
-    # for key, value in ucrDataset.getAllDataset().items():
-    #     print(key)
-    #     print(value['num_classes'])
-    #     print(value['train'][:])
-    #     print(value['valid'][:])
-    #     print(value['test'][:])
+        super().__init__(*tensors)

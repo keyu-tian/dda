@@ -1,7 +1,9 @@
 import datetime
+import logging
 import os
 import random
 import datetime
+import shutil
 
 import numpy as np
 import pytz
@@ -26,6 +28,34 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+
+
+def create_exp_dir(path, scripts_to_save=None):
+    if not os.path.exists(path):
+        os.mkdir(path)
+    print('==> Dir created : {}.'.format(path))
+    if scripts_to_save is not None:
+        os.mkdir(os.path.join(path, 'scripts'))
+        for script in scripts_to_save:
+            dst_file = os.path.join(path, 'scripts', os.path.basename(script))
+            shutil.copyfile(script, dst_file)
+
+
+def create_logger(name, log_file, level=logging.INFO, stream=True):
+    l = logging.getLogger(name)
+    formatter = logging.Formatter(
+        fmt='[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)6s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    fh = logging.FileHandler(log_file)
+    fh.setFormatter(formatter)
+    l.setLevel(level)
+    l.addHandler(fh)
+    if stream:
+        sh = logging.StreamHandler()
+        sh.setFormatter(formatter)
+        l.addHandler(sh)
+    return l
 
 
 class AverageMeter(object):
