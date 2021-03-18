@@ -248,7 +248,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     
     model: torch.nn.Module
     auger: torch.nn.Module
-    auger, model = build_model_and_auger(cfg, lg, rank, loaded_ckpt)
+    model, auger = build_model_and_auger(cfg, lg, rank, loaded_ckpt)
     
     model_op, m_op_tag, model_sc, m_sc_tag = build_op_and_sc(cfg.model_op, cfg.model_sc, len(train_loader), model, loaded_ckpt, 'model')
     auger_op, a_op_tag, auger_sc, a_sc_tag = build_op_and_sc(cfg.auger_op, cfg.auger_sc, len(train_loader), auger, loaded_ckpt, 'auger')
