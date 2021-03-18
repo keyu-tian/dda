@@ -329,6 +329,11 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             penalty.backward()
             penalty_avg.update(penalty.item())
             pena_t = time.time()
+
+            model_op.zero_grad()
+            sche_mlr = model_sc.step(loss.item())
+            auger_op.zero_grad()
+            sche_alr = auger_sc.step(penalty.item() - loss.item())
             
             if cur_it < clipping_iters:
                 orig_m_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.model_grad_clip)
@@ -342,11 +347,6 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 actual_alr = sche_alr
             clip_t = time.time()
 
-            model_op.zero_grad()
-            sche_mlr = model_sc.step(loss.item())
-            auger_op.zero_grad()
-            sche_alr = auger_sc.step(penalty.item() - loss.item())
-            
             model_op.step()
             auger_op.step()
             optm_t = time.time()
