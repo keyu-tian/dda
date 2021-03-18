@@ -1,6 +1,6 @@
 seed: ~
-aug_k: 0.5
-epochs: &epochs 800
+aug_k: 0    # do not aug!
+epochs: &epochs 2000
 penalty_lambda: 0.2
 model_grad_clip: 4.0
 auger_grad_clip: 1.0

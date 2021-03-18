@@ -190,14 +190,17 @@ def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
     if cfg.model.name == 'LSTM':
         cfg.model.kwargs.batch_size = cfg.data.batch_size
     model = model_entry(cfg.model)
-    init_params(model, output=None if rank != 0 else lg.info)
+    if cfg.init_model:
+        init_params(model, output=None if rank != 0 else lg.info)
     
     if loaded_ckpt is not None:
         model.load_state_dict(loaded_ckpt['model'])
     if rank == 0:
         lg.info(f'==> Building model complete, type: {type(model)}, param: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} * 10^6.\n')
     
-    auger = Augmenter(model.feature_dim).cuda()
+    auger = Augmenter(model.feature_dim)
+    if cfg.init_auger:
+        init_params(auger, output=None if rank != 0 else lg.info)
     if loaded_ckpt is not None:
         auger.load_state_dict(loaded_ckpt['auger'])
     if rank == 0:
@@ -327,7 +330,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             inverse_grad(auger)
             back_t = time.time()
 
-            penalty = cfg.penalty_lambda * (augmented - org_inp).norm()
+            penalty = cfg.penalty_lambda * (augmented - org_inp).norm() / org_inp.norm()
             penalty.backward()
             penalty_avg.update(penalty.item())
             pena_t = time.time()
