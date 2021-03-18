@@ -341,16 +341,16 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             sche_mlr = model_sc.step(loss.item())
             sche_alr = auger_sc.step(penalty.item() - loss.item())
             
-            if cur_it < clipping_iters:
-                orig_m_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.model_grad_clip)
-                orig_a_norm = torch.nn.utils.clip_grad_norm_(auger.parameters(), cfg.auger_grad_clip)
-                actual_mlr = sche_mlr * min(1, cfg.model_grad_clip / orig_m_norm)
-                actual_alr = sche_alr * min(1, cfg.auger_grad_clip / orig_a_norm)
-            else:
-                orig_m_norm = cfg.model_grad_clip
-                orig_a_norm = cfg.auger_grad_clip
-                actual_mlr = sche_mlr
-                actual_alr = sche_alr
+            # if cur_it < clipping_iters:   # todo: clipping all the time
+            orig_m_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.model_grad_clip)
+            orig_a_norm = torch.nn.utils.clip_grad_norm_(auger.parameters(), cfg.auger_grad_clip)
+            actual_mlr = sche_mlr * min(1, cfg.model_grad_clip / orig_m_norm)
+            actual_alr = sche_alr * min(1, cfg.auger_grad_clip / orig_a_norm)
+            # else:
+            #     orig_m_norm = cfg.model_grad_clip
+            #     orig_a_norm = cfg.auger_grad_clip
+            #     actual_mlr = sche_mlr
+            #     actual_alr = sche_alr
             clip_t = time.time()
 
             model_op.step()
