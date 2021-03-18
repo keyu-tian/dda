@@ -209,12 +209,16 @@ def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
 def build_op_and_sc(op_cfg, sc_cfg, iters_per_epoch, network, loaded_ckpt, load_prefix):
     sc_cfg.name = sc_cfg.name.strip().lower()
     sc_cfg.kwargs.max_lr = float(sc_cfg.kwargs.max_lr)
+    sc_cfg.kwargs.max_step = round(sc_cfg.kwargs.epochs * iters_per_epoch)
+    sc_cfg.kwargs.pop('epochs')
+    
     if 'min_lr' in sc_cfg.kwargs:
         sc_cfg.kwargs.min_lr = float(sc_cfg.kwargs.min_lr)
     if 'threshold' in sc_cfg.kwargs:
         sc_cfg.kwargs.threshold = float(sc_cfg.kwargs.threshold)
-    sc_cfg.kwargs.max_step = round(sc_cfg.kwargs.epochs * iters_per_epoch)
-    sc_cfg.kwargs.pop('epochs')
+    if 'patience_ratio' in sc_cfg.kwargs:
+        sc_cfg.kwargs.patience = round(float(sc_cfg.kwargs.patience_ratio) * sc_cfg.kwargs.max_step)
+        sc_cfg.kwargs.pop('patience_ratio')
     
     op_cfg.name = op_cfg.name.strip().lower()
     op_cfg.kwargs.weight_decay = float(op_cfg.kwargs.weight_decay)
@@ -308,13 +312,6 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             model.train()
             feat_t = time.time()
             
-            # prepare to step
-            model_op.zero_grad()
-            sche_mlr = model_sc.step()
-            auger_op.zero_grad()
-            sche_alr = auger_sc.step()
-            prep_t = time.time()
-            
             alpha = auger(feature)
             augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k)
             aug__t = time.time()
@@ -323,12 +320,12 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             forw_t = time.time()
             
             loss = F.cross_entropy(logits, tar)
-            loss.backward(retain_graph=True)    # todo:
+            loss.backward()    # todo:
             train_loss_avg.update(loss.item())
             inverse_grad(auger)
             back_t = time.time()
 
-            penalty = cfg.penalty_lambda * (augmented - org_inp).norm()
+            penalty = cfg.penalty_lambda * (augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k) - org_inp).norm()
             penalty.backward()
             penalty_avg.update(penalty.item())
             pena_t = time.time()
@@ -344,6 +341,11 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 actual_mlr = sche_mlr
                 actual_alr = sche_alr
             clip_t = time.time()
+
+            model_op.zero_grad()
+            sche_mlr = model_sc.step(loss.item())
+            auger_op.zero_grad()
+            sche_alr = auger_sc.step(penalty.item() - loss.item())
             
             model_op.step()
             auger_op.step()
@@ -394,8 +396,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         f' dat_t[{data_t - epoch_start_t:.3f}],'
                         f' cud_t[{cuda_t - data_t:.3f}],'
                         f' fea_t[{feat_t - cuda_t:.3f}],'
-                        f' pre_t[{prep_t - feat_t:.3f}],'
-                        f' aug_t[{aug__t - prep_t:.3f}],'
+                        f' aug_t[{aug__t - feat_t:.3f}],'
                         f' for_t[{forw_t - aug__t:.3f}],'
                         f' bac_t[{back_t - forw_t:.3f}],'
                         f' pen_t[{pena_t - back_t:.3f}],'

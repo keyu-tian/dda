@@ -37,7 +37,7 @@ class _WarmupScheduler(metaclass=ABCMeta):
 
 
 class ConstantScheduler(_WarmupScheduler):
-    def get_lr(self):
+    def get_lr(self, *_):
         return self.max_lr
     
     def state_dict(self):
@@ -50,7 +50,7 @@ class ConstantScheduler(_WarmupScheduler):
 
 
 class CosineScheduler(_WarmupScheduler):
-    def get_lr(self):
+    def get_lr(self, *_):
         ratio = (self.cur_step - self.warmup_steps) / (self.max_step - 1 - self.warmup_steps)
         return self.max_lr * 0.5 * (1. + math.cos(math.pi * ratio))
 
@@ -66,17 +66,9 @@ class CosineScheduler(_WarmupScheduler):
 class ReduceOnPlateau(_WarmupScheduler):
     def __init__(self, op, max_lr, max_step, **kwargs):
         super().__init__(op, max_lr, max_step)
-        self.sc = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.op, factor=1 / pow(2, 1 / 3),
-            **kwargs,
-            # mode='min',
-            # patience=patience,
-            # verbose=True,
-            # threshold=0.0001,
-            # threshold_mode='rel',
-            # cooldown=0,
-            # min_lr=0.0001
-        )
+        kw = dict(factor=1 / pow(2, 1 / 3), threshold=0.0005, threshold_mode='rel')
+        kw.update(kwargs)
+        self.sc = torch.optim.lr_scheduler.ReduceLROnPlateau(self.op, **kw)
     
     def get_lr(self, metrics):
         self.sc.step(metrics)

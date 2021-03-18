@@ -32,8 +32,11 @@ model_op:
 model_sc:
     name: plateau       # const, cos, plateau
     kwargs:
+        mode: min
         max_lr: 1e-3
         epochs: *epochs
+        min_lr: 0.0001
+        patience_ratio: 0.05
 
 
 auger_op:
