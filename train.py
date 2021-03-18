@@ -384,7 +384,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                     sea_lg.create_or_upd_row(
                         cfg.data.name,
                         best_acc=best_acc, topk_acc=topk_acc1s.mean,
-                        pr=(epoch + 1) / cfg.epochs, rem=remain_time.seconds, end_t=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + remain_time.seconds)),
+                        pr=(epoch + 1) / cfg.epochs, rem=remain_time.seconds, end_t=(datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')) + datetime.timedelta(seconds=remain_time.seconds)).strftime('%Y-%m-%d %H:%M:%S'),
                     )
                     
                     ep_str = f'%{len(str(cfg.epochs))}d'
