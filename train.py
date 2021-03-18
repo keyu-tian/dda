@@ -263,8 +263,9 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     if rank == 0:
         lambda_kw = {chr(955): cfg.penalty_lambda}
         op_sc_kw = {m_op_tag: True, m_sc_tag: True, a_op_tag: True, a_sc_tag: True}
+        print(colorama.Fore.CYAN + f'op_sc_kw=\n {pformat(op_sc_kw)}')
         sea_lg.create_or_upd_row(
-            cfg.data.name,
+            cfg.data.name, vital=True,
             model=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
             k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
@@ -460,7 +461,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             with open(args.sh_name, 'a') as fp:
                 print(f'\n# {args.exp_dir_name}:\n{strs}', file=fp)
             sea_lg.create_or_upd_row(
-                cfg.data.name,
+                cfg.data.name, vital=True,
                 best_acc=best_acc, topk_acc=topk_acc,
                 pr=1, rem=0, end_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             )

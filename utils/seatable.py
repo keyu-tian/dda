@@ -1,11 +1,11 @@
+import datetime
+import os
 import random
+import time
 from copy import deepcopy
 
-import os
-
-from colorama import Fore
 import pytz
-import datetime
+from colorama import Fore
 from seatable_api import Base
 
 tag_choices = [
@@ -26,8 +26,13 @@ class SeatableLogger(object):
         self.base = base
         self.rid = None
         self.exp_path = exp_path
+        self.last_t = time.time()
     
-    def create_or_upd_row(self, table_name, **kwargs):
+    def create_or_upd_row(self, table_name, vital=False, **kwargs):
+        if not vital and (time.time() - self.last_t < 8):
+            return
+        self.last_t = time.time()
+        
         tags = []
         new_kw = deepcopy(kwargs)
         for k, v in kwargs.items():
