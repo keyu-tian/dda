@@ -323,6 +323,9 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             
             logits = model(augmented)
             forw_t = time.time()
+
+            model_op.zero_grad()
+            auger_op.zero_grad()
             
             loss = F.cross_entropy(logits, tar)
             loss.backward(retain_graph=True)    # todo: 好像逃不掉retain... 否则两次aug的随机性不一致会出问题，loss和penalty就解耦了，这样不行。
@@ -335,9 +338,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             penalty_avg.update(penalty.item())
             pena_t = time.time()
 
-            model_op.zero_grad()
             sche_mlr = model_sc.step(loss.item())
-            auger_op.zero_grad()
             sche_alr = auger_sc.step(penalty.item() - loss.item())
             
             if cur_it < clipping_iters:
