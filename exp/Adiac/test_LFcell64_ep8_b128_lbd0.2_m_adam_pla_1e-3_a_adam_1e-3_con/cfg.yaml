@@ -10,6 +10,7 @@ data:
     name: &set_name Adiac
     kwargs:
         set_name: *set_name
+        tensor_data_root_path: /content/drive/MyDrive/datasets/UCRTensorData_CEEM
 
 model:
     name: LF # LSTM, Res18, LF, MLP, MBV2
