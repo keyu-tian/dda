@@ -53,7 +53,7 @@ def main():
     while True:
         if os.path.exists(terminate_file):
             os.remove(terminate_file)
-            print(colorama.Fore.CYAN + '[monitor] terminated; use `sh ./kill.sh` to kill the tensorboard proc')
+            print(colorama.Fore.CYAN + '[monitor] terminated.')
             exit(-1)
             
         time.sleep(10)
@@ -70,7 +70,8 @@ def main():
         if attempts == max_att:
             raise json.decoder.JSONDecodeError
         
-        if not first and dd == last_dd:
+        final = dd['pr'] > 0.99999
+        if not final and not first and dd == last_dd:
             continue
         
         first = False

@@ -374,11 +374,11 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 tb_lg.add_scalar('train/acc', train_acc_avg.avg, cur_it)
                 tb_lg.add_scalars(f'step/model/lr', {'scheduled': sche_mlr}, cur_it)
                 tb_lg.add_scalars(f'step/auger/lr', {'scheduled': sche_alr}, cur_it)
-                if cur_it < clipping_iters:
-                    tb_lg.add_scalar(f'step/model/orig_norm', orig_m_norm, cur_it)
-                    tb_lg.add_scalars(f'step/model/lr', {'actual': actual_mlr}, cur_it)
-                    tb_lg.add_scalar(f'step/auger/orig_norm', orig_a_norm, cur_it)
-                    tb_lg.add_scalars(f'step/auger/lr', {'actual': actual_alr}, cur_it)
+                # if cur_it < clipping_iters:
+                tb_lg.add_scalar(f'step/model/orig_norm', orig_m_norm, cur_it)
+                tb_lg.add_scalars(f'step/model/lr', {'actual': actual_mlr}, cur_it)
+                tb_lg.add_scalar(f'step/auger/orig_norm', orig_a_norm, cur_it)
+                tb_lg.add_scalars(f'step/auger/lr', {'actual': actual_alr}, cur_it)
             
             if it == iters_per_train_ep - 1:  # last iter
                 test_loss, test_acc = test(model, iters_per_test_ep, test_iterator)
