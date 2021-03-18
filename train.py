@@ -244,7 +244,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     # Initialize.
     # todo: set_seed
     
-    sea_lg = SeatableLogger() if rank == 0 else None
+    sea_lg = SeatableLogger(args.exp_path) if rank == 0 else None
     
     model: torch.nn.Module
     auger: torch.nn.Module
