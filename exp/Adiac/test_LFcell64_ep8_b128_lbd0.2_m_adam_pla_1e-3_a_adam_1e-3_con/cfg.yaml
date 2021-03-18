@@ -29,8 +29,6 @@ model_op:
 #        params: [auto assigned]
 #        lr: [auto assigned]
         weight_decay: 0
-        momentum: 0.9
-        nesterov: True
 model_sc:
     name: plateau       # const, cos, plateau
     kwargs:
@@ -44,8 +42,6 @@ auger_op:
 #        params: [auto assigned]
 #        lr: [auto assigned]
         weight_decay: 0
-        momentum: 0.9
-        nesterov: True
 auger_sc:
     name: const         # const, cos, plateau
     kwargs:
