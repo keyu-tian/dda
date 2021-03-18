@@ -423,8 +423,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         'auger_sc': auger_sc.state_dict(),
                     }, model_ckpt_path)
         
-        if epoch % 10 == 0:
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         epoch_speed.update(time.time() - epoch_start_t)
     
     topk_acc = topk_acc1s.mean

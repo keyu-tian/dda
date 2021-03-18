@@ -4,7 +4,7 @@ REL_PATH=../../../
 
 PYTHONPATH=${PYTHONPATH}:${REL_PATH} \
 python -u -m train \
---sh_name="$1" \
+--sh_name="$0" \
 --cfg_name="cfg.yaml" \
 --exp_dir_name="${EXP_DIR}" \
 
