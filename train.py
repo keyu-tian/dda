@@ -262,7 +262,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
         sea_lg.create_or_upd_row(
             cfg.data.name,
             model=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
-            k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}',
+            k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             **lambda_kw, **op_sc_kw,
         )
@@ -323,11 +323,11 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             forw_t = time.time()
             
             loss = F.cross_entropy(logits, tar)
-            loss.backward()
+            loss.backward(retain_graph=True)
             train_loss_avg.update(loss.item())
             inverse_grad(auger)
             back_t = time.time()
-            
+
             penalty = cfg.penalty_lambda * (augmented - org_inp).norm()
             penalty.backward()
             penalty_avg.update(penalty.item())
