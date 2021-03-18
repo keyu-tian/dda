@@ -129,19 +129,19 @@ def prepare():
         lg.info(f'==> Building dataloaders of {cfg.data.name} ...')
     
     train_loader = DataLoader(
-        dataset=train_set, num_workers=4, pin_memory=True,
+        dataset=train_set, num_workers=2, pin_memory=True,
         batch_sampler=InfiniteBatchSampler(
             dataset_len=len(train_set), batch_size=cfg.data.batch_size, shuffle=True, drop_last=False, fill_last=True, seed=0,
         )
     )
     emd_loader = DataLoader(
-        dataset=emd_set, num_workers=4, pin_memory=True,
+        dataset=emd_set, num_workers=2, pin_memory=True,
         batch_sampler=InfiniteBatchSampler(
             dataset_len=len(train_set), batch_size=cfg.data.batch_size, shuffle=True, drop_last=False, fill_last=True, seed=0,
         )
     )
     test_loader = DataLoader(
-        dataset=test_set, num_workers=4, pin_memory=True,
+        dataset=test_set, num_workers=2, pin_memory=True,
         batch_sampler=InfiniteBatchSampler(
             dataset_len=len(test_set), batch_size=cfg.data.batch_size * (1 if cfg.model.name == 'LSTM' else 2), shuffle=False, drop_last=False,
         )
@@ -283,12 +283,13 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     max_iter = iters_per_train_ep * cfg.epochs
     
     if rank == 0:
+        lg.info(f'==> iters_per_train_ep={iters_per_train_ep}')
         lg.info(f'==> final args:\n{pformat(vars(args))}\n')
         lg.info(f'==> final cfg:\n{pformat(cfg)}\n')
     
     best_acc = 0
     topk_acc1s = TopKHeap(maxsize=max(1, round(cfg.epochs * 0.05)))
-    tb_lg_freq = max(round(iters_per_train_ep / 3), 1)
+    tb_lg_freq = max(round(iters_per_train_ep / 2), 1)
     
     epoch_speed = AverageMeter(3)
     train_loss_avg = AverageMeter(iters_per_train_ep)
