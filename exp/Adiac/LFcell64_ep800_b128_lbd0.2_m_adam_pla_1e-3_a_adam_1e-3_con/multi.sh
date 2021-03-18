@@ -12,7 +12,7 @@ do
   EXP_DIR="exp-$(date "+%Y-%m%d-%H%M%S")"
   PYTHONPATH=${PYTHONPATH}:${REL_PATH} \
   python -u -m train \
-  --sh_name="$1" \
+  --sh_name="$0" \
   --cfg_name="cfg.yaml" \
   --exp_dir_name="${EXP_DIR}" \
 
