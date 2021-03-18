@@ -323,7 +323,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             forw_t = time.time()
             
             loss = F.cross_entropy(logits, tar)
-            loss.backward(retain_graph=True)
+            loss.backward(retain_graph=True)    # todo:
             train_loss_avg.update(loss.item())
             inverse_grad(auger)
             back_t = time.time()

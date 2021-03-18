@@ -33,6 +33,7 @@ class _WarmupScheduler(metaclass=ABCMeta):
     def step(self, *args):
         self.set_lr(*args)
         self.cur_step += 1
+        return self.last_lr
 
 
 class ConstantScheduler(_WarmupScheduler):
