@@ -320,12 +320,12 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             forw_t = time.time()
             
             loss = F.cross_entropy(logits, tar)
-            loss.backward()    # todo:
+            loss.backward(retain_graph=True)    # todo: 好像逃不掉retain... 否则两次aug的随机性不一致会出问题，loss和penalty就解耦了，这样不行。
             train_loss_avg.update(loss.item())
             inverse_grad(auger)
             back_t = time.time()
 
-            penalty = cfg.penalty_lambda * (augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k) - org_inp).norm()
+            penalty = cfg.penalty_lambda * (augmented - org_inp).norm()
             penalty.backward()
             penalty_avg.update(penalty.item())
             pena_t = time.time()
