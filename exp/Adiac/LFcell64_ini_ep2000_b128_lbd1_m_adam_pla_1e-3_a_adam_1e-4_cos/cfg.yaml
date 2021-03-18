@@ -48,7 +48,7 @@ auger_op:
 #        lr: [auto assigned]
         weight_decay: 0
 auger_sc:
-    name: const         # const, cos, plateau
+    name: cos         # const, cos, plateau
     kwargs:
         max_lr: 1e-4
         epochs: *epochs
