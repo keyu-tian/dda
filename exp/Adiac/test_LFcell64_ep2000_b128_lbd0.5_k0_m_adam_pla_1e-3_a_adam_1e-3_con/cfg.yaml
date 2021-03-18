@@ -1,7 +1,7 @@
 seed: ~
 aug_k: 0    # do not aug!
 epochs: &epochs 2000
-penalty_lambda: 0.5
+penalty_lambda: 1
 model_grad_clip: 10.0
 auger_grad_clip: 1.0
 init_model: False
@@ -50,7 +50,7 @@ auger_op:
 auger_sc:
     name: const         # const, cos, plateau
     kwargs:
-        max_lr: 1e-3
+        max_lr: 1e-4
         epochs: *epochs
 
 

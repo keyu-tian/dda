@@ -14,16 +14,17 @@ tag_choices = [
     'Asgd', 'Aadm', 'Aamw',
     'Acon', 'Acos', 'Apla',
 ]
+# best=round({bac}, 2), topk=round({kac}, 2) ({exp})
 
 
 class SeatableLogger(object):
     def __init__(self, exp_path):
         self.coop = [
-            '62b3e51771db4e3998bd6b8df50e8357@auth.local',
-            'f501db34b2a54f6397f39de24cac51dc@auth.local',
-            '9bfdb13c6e20495487bb554ce9ccef45@auth.local',
+            # '62b3e51771db4e3998bd6b8df50e8357@auth.local',
+            # 'f501db34b2a54f6397f39de24cac51dc@auth.local',
+            # '9bfdb13c6e20495487bb554ce9ccef45@auth.local',
         ]
-        ssl_aug_api_token = 'f29f99601183940676df44d9b9d253499fdd7eb1'
+        ssl_aug_api_token = '3240b3ef535e92da60150c6748e87c3e355ff7ea'
         server_url = 'https://cloud.seatable.cn'
         base = Base(ssl_aug_api_token, server_url)
         base.auth()
@@ -54,7 +55,7 @@ class SeatableLogger(object):
         dd['exp'] = exp_dirname
         
         if self.rid is None:
-            dd['coop'] = self.coop
+            # dd['coop'] = self.coop
             self.rid = self.base.append_row(table_name, dd)['_id']
             SeatableLogger.logging(Fore.LIGHTGREEN_EX, 'created')
         else:
@@ -63,7 +64,7 @@ class SeatableLogger(object):
                 if random.randrange(16) == 0:
                     SeatableLogger.logging(Fore.LIGHTBLUE_EX, 'updated')
             except ConnectionError:
-                dd['coop'] = self.coop
+                # dd['coop'] = self.coop
                 self.rid = self.base.append_row(table_name, dd)['_id']
                 SeatableLogger.logging(Fore.RED, 're-created')
 

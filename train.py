@@ -269,7 +269,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
         print(colorama.Fore.CYAN + f'op_sc_kw=\n {pformat(op_sc_kw)}')
         sea_lg.create_or_upd_row(
             cfg.data.name, vital=True,
-            model=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
+            m=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
             k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             **lambda_kw, **op_sc_kw,
@@ -383,7 +383,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                     remain_time, finish_time = epoch_speed.time_preds(cfg.epochs - (epoch + 1))
                     sea_lg.create_or_upd_row(
                         cfg.data.name,
-                        best_acc=best_acc, topk_acc=topk_acc1s.mean,
+                        be_ac=best_acc, tk_ac=topk_acc1s.mean,
                         pr=(epoch + 1) / cfg.epochs, rem=remain_time.seconds, end_t=(datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')) + datetime.timedelta(seconds=remain_time.seconds)).strftime('%Y-%m-%d %H:%M:%S'),
                     )
                     
@@ -466,7 +466,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 print(f'\n# {args.exp_dir_name}:\n{strs}', file=fp)
             sea_lg.create_or_upd_row(
                 cfg.data.name, vital=True,
-                best_acc=best_acc, topk_acc=topk_acc,
+                be_ac=best_acc, tk_ac=topk_acc,
                 pr=1, rem=0, end_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             )
     
