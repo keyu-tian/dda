@@ -7,7 +7,7 @@ from model import MLP
 class Augmenter(nn.Module):
     def __init__(self, feature_dim):
         super().__init__()
-        self.fc = MLP(input_size=feature_dim, num_classes=2, bn0=False, base_hidden_dim=64, num_layers=3)
+        self.fc = MLP(input_size=feature_dim, num_classes=2, bn0=False, base_hidden_dim=200, num_layers=3)
         torch.nn.init.normal_(self.fc.classifier.weight, std=0.001)
         torch.nn.init.constant_(self.fc.classifier.bias, 0.)
 
