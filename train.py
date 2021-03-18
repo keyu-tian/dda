@@ -297,11 +297,11 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
         for it in range(iters_per_train_ep):
             cur_it = iters_per_train_ep * epoch + it
             noi_inp, oth_inp, tar = next(emd_iterator)
-            org_inp = noi_inp + oth_inp
             data_t = time.time()
             noi_inp, oth_inp, tar = noi_inp.cuda(), oth_inp.cuda(), tar.cuda()
             cuda_t = time.time()
             
+            org_inp = noi_inp + oth_inp
             model.eval()
             with torch.no_grad():
                 feature = model(org_inp, returns_feature=True)
