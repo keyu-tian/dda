@@ -149,8 +149,8 @@ def prepare():
     
     # Load checkpoints.
     loaded_ckpt = None
-    if args.ckpt_path is not None:
-        ckpt_path = os.path.abspath(args.ckpt_path)
+    if cfg.ckpt_path is not None:
+        ckpt_path = os.path.abspath(cfg.ckpt_path)
         if rank == 0:
             lg.info(f'==> Getting ckpt for resuming at {ckpt_path} ...')
         assert os.path.isfile(ckpt_path), '==> Error: no checkpoint file found!'

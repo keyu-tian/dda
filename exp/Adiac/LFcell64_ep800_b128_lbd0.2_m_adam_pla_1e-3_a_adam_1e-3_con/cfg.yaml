@@ -4,6 +4,7 @@ epochs: &epochs 800
 penalty_lambda: 0.2
 model_grad_clip: 4.0
 auger_grad_clip: 1.0
+ckpt_path: ~
 
 data:
     batch_size: 128
