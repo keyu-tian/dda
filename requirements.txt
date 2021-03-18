@@ -2,3 +2,5 @@ EMD-signal
 tqdm
 colorama
 tensorboardX
+seatable-api
+

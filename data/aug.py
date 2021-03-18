@@ -17,7 +17,7 @@ def emd(signal: np.ndarray, eemd=True, num_workers=None) -> Tuple[np.ndarray, np
     return np_noisy_IMF, np_sum_of_other_IMFs
 
 
-def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, k=0.5, aug_prob=0.5) -> tc.Tensor:
+def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, k=0.5, aug_prob=1) -> tc.Tensor:
     # batch: (bs, 1, sig_len)
     bs, dev = noise_batch.shape[0], noise_batch.device
     sig_len = noise_batch[0].shape[-1]

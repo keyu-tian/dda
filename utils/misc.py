@@ -1,9 +1,10 @@
 import datetime
+import heapq
 import logging
 import os
 import random
-import datetime
 import shutil
+import time
 
 import numpy as np
 import pytz
@@ -58,48 +59,78 @@ def create_logger(name, log_file, level=logging.INFO, stream=True):
     return l
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
+def inverse_grad(module: torch.nn.Module):
+    for p in module.parameters():
+        if p.grad is not None:
+            p.grad.neg_()
+
+
+class TopKHeap(list):
     
+    def __init__(self, maxsize):
+        super(TopKHeap, self).__init__()
+        self.maxsize = maxsize
+        assert self.maxsize >= 1
+    
+    @property
+    def mean(self):
+        l = len(self)
+        return 0 if l == 0 else sum(self) / l
+    
+    def push_q(self, x):
+        if len(self) < self.maxsize:
+            heapq.heappush(self, x)
+        elif x > self[0]:
+            heapq.heappushpop(self, x)
+    
+    def pop_q(self):
+        return heapq.heappop(self)
+    
+    def __repr__(self):
+        return str(sorted([x for x in self], reverse=True))
+
+
+class AverageMeter(object):
     def __init__(self, length=0):
-        self.length = int(length)
-        self.history = []
-        self.count = 0
-        self.sum = 0.0
-        self.val = 0.0
+        self.length = round(length)
+        if self.length > 0:
+            self.queuing = True
+            self.val_history = []
+            self.num_history = []
+        self.val_sum = 0.0
+        self.num_sum = 0.0
+        self.last = 0.0
         self.avg = 0.0
     
     def reset(self):
         if self.length > 0:
-            self.history.clear()
-        else:
-            self.count = 0
-            self.sum = 0.0
-        self.val = 0.0
+            self.val_history.clear()
+            self.num_history.clear()
+        self.val_sum = 0.0
+        self.num_sum = 0.0
+        self.last = 0.0
         self.avg = 0.0
     
     def update(self, val, num=1):
-        if self.length > 0:
-            # currently assert num==1 to avoid bad usage, refine when there are some explict requirements
-            # assert num == 1
-            self.history.append(val)
-            if len(self.history) > self.length:
-                del self.history[0]
-            
-            self.val = self.history[-1]
-            self.avg = np.mean(self.history)
-        else:
-            self.val = val
-            self.sum += val * num
-            self.count += num
-            self.avg = self.sum / self.count
+        self.val_sum += val * num
+        self.num_sum += num
+        self.last = val / num
+        if self.queuing:
+            self.val_history.append(val)
+            self.num_history.append(num)
+            if len(self.val_history) > self.length:
+                self.val_sum -= self.val_history[0] * self.num_history[0]
+                self.num_sum -= self.num_history[0]
+                del self.val_history[0]
+                del self.num_history[0]
+        self.avg = self.val_sum / self.num_sum
     
-    def get_trimmed_mean(self):
-        if len(self.history) >= 5:
-            trimmed = max(int(self.length * 0.1), 1)
-            return np.mean(sorted(self.history)[trimmed:-trimmed])
-        else:
-            return self.avg
+    def time_preds(self, counts):
+        remain_secs = counts * self.avg
+        remain_time = datetime.timedelta(seconds=round(remain_secs))
+        finish_time = (datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')) + datetime.timedelta(seconds=remain_secs)).strftime('%m-%d %H:%M:%S')
+        # finish_time = time.strftime("%m-%d %H:%M:%S", time.localtime(time.time() + remain_secs))
+        return remain_time, finish_time
     
     def state_dict(self):
         return vars(self)

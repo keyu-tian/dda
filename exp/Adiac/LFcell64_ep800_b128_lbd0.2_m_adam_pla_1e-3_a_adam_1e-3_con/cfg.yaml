@@ -1,0 +1,56 @@
+seed: ~
+aug_k: 0.5
+epochs: &epochs 800
+penalty_lambda: 0.2
+model_grad_clip: 4.0
+auger_grad_clip: 1.0
+
+data:
+    batch_size: 128
+    name: &set_name Adiac
+    kwargs:
+        set_name: *set_name
+
+model:
+    name: LF # LSTM, Res18, LF, MLP, MBV2
+    kwargs:
+#        input_size: [auto assigned]
+#        num_classes: [auto assigned]
+        hidden_dim: 64
+auger:
+    kwargs:
+        ~
+
+model_op:
+    name: adam
+    kwargs:
+#        params: [auto assigned]
+#        lr: [auto assigned]
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: True
+model_sc:
+    name: plateau       # const, cos, plateau
+    kwargs:
+        max_lr: 1e-3
+        epochs: *epochs
+
+
+auger_op:
+    name: adam
+    kwargs:
+#        params: [auto assigned]
+#        lr: [auto assigned]
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: True
+auger_sc:
+    name: const         # const, cos, plateau
+    kwargs:
+        max_lr: 1e-3
+        epochs: *epochs
+
+
+
+
+

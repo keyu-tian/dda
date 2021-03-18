@@ -2,30 +2,31 @@ import argparse
 import datetime
 import os
 import time
-from copy import deepcopy
 from pprint import pformat
 
 import colorama
+import pytz
 import torch
+import torch.nn.functional as F
 import yaml
 from easydict import EasyDict
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from torch.utils.data.dataset import Dataset
 
+from data.aug import augment_and_aggregate_batch
 from data.sampler import InfiniteBatchSampler
 from data.ucr import UCRTensorDataSet, ALL_NAMES
 from model import model_entry
 from model.augmenter import Augmenter
-from utils.scheduler import CosineLRScheduler, ConstScheduler
-from utils.misc import create_exp_dir, create_logger, set_seed, init_params, AverageMeter
-
-using_gpu = torch.cuda.is_available()
+from utils.misc import create_exp_dir, create_logger, init_params, AverageMeter, inverse_grad, TopKHeap, time_str
+from utils.scheduler import ConstantScheduler, CosineScheduler, ReduceOnPlateau
+from utils.seatable import SeatableLogger
 
 try:
     import linklink as link
-    link_dist = using_gpu
+    
+    link_dist = True
 except ImportError:
     link = None
     link_dist = False
@@ -35,12 +36,9 @@ def prepare():
     colorama.init(autoreset=True)
     
     parser = argparse.ArgumentParser(description='Dynamic Data Augmentation for Time-Series')
-    parser.add_argument('--cfg_path', type=str, required=True)
-    parser.add_argument('--log_path', type=str, required=True)
-    parser.add_argument('--ckpt_path', type=str, default=None)
-    parser.add_argument('--seed', default='0', type=str)
-    parser.add_argument('--input_size', required=True, type=int)
-    parser.add_argument('--num_classes', required=True, type=int)
+    parser.add_argument('--sh_name', type=str, required=True)
+    parser.add_argument('--cfg_name', type=str, required=True)
+    parser.add_argument('--exp_dir_name', type=str, required=True)
     parser.add_argument('--only_val', action='store_true', default=False)
     
     # Distribution
@@ -53,88 +51,83 @@ def prepare():
     
     # Parsing args
     args = parser.parse_args()
-    args.save_dir = os.path.join(args.log_path, f'ckpts')
+    args.exp_path = os.path.join(os.getcwd(), args.exp_dir_name)
+    args.job_name = os.path.split(os.getcwd())[-1]
+    args.event_path = os.path.join(args.exp_path, f'events')
+    args.save_path = os.path.join(args.exp_path, f'ckpts')
     if rank == 0:
         print(f'==> raw args:\n{pformat(vars(args))}')
     
-    with open(args.cfg_path) as f:
+    with open(args.cfg_name) as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader) if hasattr(yaml, 'FullLoader') else yaml.load(f)
         cfg = EasyDict(cfg)
     
     if rank == 0:
         print(f'==> raw config:\n{pformat(cfg)}')
     
-    cfg.model.kwargs.input_size = args.input_size
-    cfg.model.kwargs.num_classes = args.num_classes
-    
-    cfg.optm.name = cfg.optm.name.strip().lower()
-    cfg.optm.kwargs.weight_decay = float(cfg.optm.kwargs.weight_decay)
-    
-    cfg.sche.name = cfg.sche.name.strip().lower()
-    cfg.sche.kwargs.lr = float(cfg.sche.kwargs.lr)
-    if 'min_lr' in cfg.sche.kwargs:
-        cfg.sche.kwargs.min_lr = float(cfg.sche.kwargs.min_lr)
-    cfg.sche.kwargs.base_lr = cfg.sche.kwargs.lr / cfg.sche.kwargs.base_lr_division
-    cfg.sche.kwargs.pop('base_lr_division')
-    if 'warm_up_division' not in cfg.sche.kwargs:
-        cfg.sche.kwargs.warm_up_division = 100
-    
     if rank == 0:
         print('==> Creating dirs ...')
-        create_exp_dir(args.log_path, scripts_to_save=None)
-        create_exp_dir(args.save_dir, scripts_to_save=None)
+        create_exp_dir(args.exp_path, scripts_to_save=None)
+        create_exp_dir(args.event_path, scripts_to_save=None)
+        create_exp_dir(args.save_path, scripts_to_save=None)
         print('==> Creating dirs complete.\n')
         if link_dist:
             link.barrier()
     
     # Logger
     if rank == 0:
-        print('==> Creating logger ...')
-        lg = create_logger('global', os.path.join(args.log_path, 'log.txt'))
-        print('==> Creating logger complete.\n')
+        print('==> Creating loggers ...')
+        lg = create_logger('global', os.path.join(args.exp_path, 'log.txt'))
         lg.info(f'==> args:\n{pformat(vars(args))}\n')
         lg.info(f'==> cfg:\n{pformat(cfg)}\n')
-        tb_lg = SummaryWriter(os.path.join(args.log_path, 'events'))
-        tb_lg.add_text('exp_time', time.strftime("%Y%m%d-%H%M%S"))
-        tb_lg.add_text('exp_dir', f'~/{os.path.relpath(os.getcwd(), os.path.expanduser("~"))}')
+        tb_lg = SummaryWriter(args.event_path)
+        tb_lg.add_text('exp_time', time_str())
+        tb_lg.add_text('exp_path', args.exp_path)
+        print('==> Creating loggers complete.\n')
         if link_dist:
             link.barrier()
     else:
         lg = None
         tb_lg = None
     
-    if not using_gpu and rank == 0:
-        lg.info('==> No available GPU device!\n')
+    if not torch.cuda.is_available():
+        raise AttributeError('==> No available GPU device!')
     
     # Seed
-    if args.seed is None:
-        args.seed = 0
-    elif args.seed.strip().lower() in ['rand', 'random', 'rnd']:
-        args.seed = round(time.time() * 1e9) % round(1e9+7)
-    else:
-        args.seed = round(eval(args.seed))
-    args.seed += rank
+    if cfg.seed == 'None':
+        cfg.seed = None
+    
+    if cfg.seed is not None:
+        if cfg.seed.strip().lower() in ['rand', 'random', 'rnd']:
+            cfg.seed = round(time.time() * 1e9) % round(1e9 + 7)
+        else:
+            cfg.seed = round(eval(cfg.seed))
+        cfg.seed += rank
     
     if rank == 0:
         lg.info('==> Preparing data..')
-
+    
     ds_clz: Dataset.__class__
     if cfg.data.name in ALL_NAMES:
         ds_clz = UCRTensorDataSet
     else:
+        raise NotImplementedError
         ds_clz = {
             ''
         }[cfg.data.name]
-
+    
+    if cfg.data.kwargs is None:
+        cfg.data.kwargs = {}
     train_set = ds_clz(train=True, emd=False, **cfg.data.kwargs)
     emd_set = ds_clz(train=True, emd=True, **cfg.data.kwargs)
     test_set = ds_clz(train=False, emd=False, **cfg.data.kwargs)
-
+    
+    cfg.model.kwargs.input_size = train_set.input_size
     cfg.model.kwargs.num_classes = train_set.num_classes
     
     if rank == 0:
         lg.info(f'==> Building dataloaders of {cfg.data.name} ...')
-
+    
     train_loader = DataLoader(
         dataset=train_set, num_workers=4, pin_memory=True,
         batch_sampler=InfiniteBatchSampler(
@@ -168,201 +161,307 @@ def prepare():
     return args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader
 
 
-def test(net, tot_it, test_iterator):
-    net.eval()
+def test(model, tot_it, test_iterator):
+    model.eval()
     with torch.no_grad():
         tot_loss, tot_pred, tot_correct = 0., 0, 0
         for it in range(tot_it):
             inp, tar = next(test_iterator)
-            if using_gpu:
-                inp, tar = inp.cuda(), tar.cuda()
-            outputs = net(inp)
-            loss = F.cross_entropy(outputs, tar)
+            inp, tar = inp.cuda(), tar.cuda()
+            logits = model(inp)
+            loss = F.cross_entropy(logits, tar)
             
             tot_loss += loss.item()
-            _, predicted = outputs.max(1)
-            tot_pred += tar.size(0)
+            predicted = logits.argmax(dim=1)
+            tot_pred += tar.shape[0]
             tot_correct += predicted.eq(tar).sum().item()
-    
+    model.train()
     return tot_loss / tot_it, 100. * tot_correct / tot_pred
 
 
-def build_model(cfg, lg, rank, loaded_ckpt):
+def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
     if rank == 0:
         lg.info('==> Building model..')
+    if cfg.model.kwargs is None:
+        cfg.model.kwargs = {}
+    if cfg.auger.kwargs is None:
+        cfg.auger.kwargs = {}
+    
     if cfg.model.name == 'LSTM':
-        cfg.model.kwargs.batch_size = cfg.batch_size
-    net = model_entry(cfg.model)
-    init_params(net, output=None if rank != 0 else lg.info)
+        cfg.model.kwargs.batch_size = cfg.data.batch_size
+    model = model_entry(cfg.model)
+    init_params(model, output=None if rank != 0 else lg.info)
     
     if loaded_ckpt is not None:
-        net.load_state_dict(loaded_ckpt['model'])
-    num_para = sum(p.numel() for p in net.parameters()) / 1e6
+        model.load_state_dict(loaded_ckpt['model'])
     if rank == 0:
-        lg.info(f'==> Building model complete, type: {type(net)}, param: {num_para:.3f} * 10^6.\n')
-    return net.cuda() if using_gpu else net
-
-
-def build_op(op_cfg, sc_cfg, loaded_ckpt, net):
-    op_cfg.kwargs.params = net.parameters()
-    op_cfg.kwargs.lr = sc_cfg.kwargs.base_lr
-    op = {
-        'sgd': torch.optim.SGD,
-        'adam': torch.optim.Adam,
-        'adamw': torch.optim.AdamW,
-    }[op_cfg.name](**op_cfg.kwargs)
-    op_cfg.kwargs.pop('params')
+        lg.info(f'==> Building model complete, type: {type(model)}, param: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} * 10^6.\n')
+    
+    auger = Augmenter(model.feature_dim).cuda()
     if loaded_ckpt is not None:
-        op.load_state_dict(loaded_ckpt['op'])
-    return op
+        auger.load_state_dict(loaded_ckpt['auger'])
+    if rank == 0:
+        lg.info(f'==> Building augmenter complete, type: {type(auger)}, param: {sum(p.numel() for p in auger.parameters()) / 1e6:.3f} * 10^6.\n')
+    
+    return model.cuda(), auger.cuda()
 
 
-def build_sche(cfg, optm, start_iter, max_iter):
-    if cfg.sche.name == 'cos':
-        return CosineLRScheduler(
-            optimizer=optm,
-            T_max=max_iter,
-            eta_min=cfg.sche.kwargs.min_lr,
-            base_lr=cfg.sche.kwargs.base_lr,
-            warmup_lr=cfg.sche.kwargs.lr,
-            warmup_steps=max(round(max_iter / cfg.sche.kwargs.warm_up_division), 1),
-            last_iter=start_iter-1
-        )
-    elif cfg.sche.name == 'con':
-        return ConstScheduler(
-            lr=cfg.optm.lr
-        )
-    else:
-        raise AttributeError(f'unknown scheduler type: {cfg.sche.name}')
+def build_op_and_sc(op_cfg, sc_cfg, iters_per_epoch, network, loaded_ckpt, load_prefix):
+    sc_cfg.name = sc_cfg.name.strip().lower()
+    sc_cfg.kwargs.max_lr = float(sc_cfg.kwargs.max_lr)
+    if 'min_lr' in sc_cfg.kwargs:
+        sc_cfg.kwargs.min_lr = float(sc_cfg.kwargs.min_lr)
+    if 'threshold' in sc_cfg.kwargs:
+        sc_cfg.kwargs.threshold = float(sc_cfg.kwargs.threshold)
+    sc_cfg.kwargs.max_step = round(sc_cfg.kwargs.epochs * iters_per_epoch)
+    sc_cfg.kwargs.pop('epochs')
+    
+    op_cfg.name = op_cfg.name.strip().lower()
+    op_cfg.kwargs.weight_decay = float(op_cfg.kwargs.weight_decay)
+    op_cfg.kwargs.lr = sc_cfg.kwargs.max_lr / 10
+    
+    op, op_tag = {
+        'sgd': (torch.optim.SGD, 'sgd'),
+        'adam': (torch.optim.Adam, 'adm'),
+        'adamw': (torch.optim.AdamW, 'amw'),
+    }[op_cfg.name]
+    op = op(network.parameters(), **op_cfg.kwargs)
+    
+    sc, sc_tag = {
+        'const': (ConstantScheduler, 'con'),
+        'cos': (CosineScheduler, 'cos'),
+        'plateau': (ReduceOnPlateau, 'pla'),
+    }[sc_cfg.name]
+    sc = sc(op, **sc_cfg.kwargs)
+    
+    if loaded_ckpt is not None:
+        op.load_state_dict(loaded_ckpt[f'{load_prefix}_op'])
+        sc.load_state_dict(loaded_ckpt[f'{load_prefix}_sc'])
+    return op, op_tag, sc, sc_tag
 
 
 def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader):
     # Initialize.
     # todo: set_seed
     
-    model: torch.nn.Module = build_model(cfg, lg, rank, loaded_ckpt)
-    auger = Augmenter(model.feature_dim)
+    sea_lg = SeatableLogger() if rank == 0 else None
     
-    model_op = build_op(cfg.model_op, cfg.model_sc, loaded_ckpt, model)
-    auger_op = build_op(cfg.auger_op, cfg.auger_sc, loaded_ckpt, auger)
+    model: torch.nn.Module
+    auger: torch.nn.Module
+    auger, model = build_model_and_auger(cfg, lg, rank, loaded_ckpt)
+    
+    model_op, m_op_tag, model_sc, m_sc_tag = build_op_and_sc(cfg.model_op, cfg.model_sc, len(train_loader), model, loaded_ckpt, 'model')
+    auger_op, a_op_tag, auger_sc, a_sc_tag = build_op_and_sc(cfg.auger_op, cfg.auger_sc, len(train_loader), auger, loaded_ckpt, 'auger')
+
+    m_op_tag, m_sc_tag = 'M' + m_op_tag, 'M' + m_sc_tag
+    a_op_tag, a_sc_tag = 'A' + a_op_tag, 'A' + a_sc_tag
+    
+    if rank == 0:
+        lambda_kw = {chr(955): cfg.penalty_lambda}
+        op_sc_kw = {m_op_tag: True, m_sc_tag: True, a_op_tag: True, a_sc_tag: True}
+        sea_lg.create_or_upd_row(
+            cfg.data.name,
+            model=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
+            k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}',
+            pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
+            **lambda_kw, **op_sc_kw,
+        )
     
     if loaded_ckpt is not None:
-        start_iter = loaded_ckpt['start_iter']
+        start_ep = loaded_ckpt['start_ep'] + 1
     else:
-        start_iter = 0
-    tot_it = len(train_loader)
-    tot_test_it = len(test_loader)
-    train_iterator = iter(train_loader)
+        start_ep = 0
+    
+    iters_per_train_ep = len(train_loader)
+    iters_per_test_ep = len(test_loader)
+    emd_iterator = iter(emd_loader)
     test_iterator = iter(test_loader)
-    global_tot_it = tot_it * cfg.epochs
-    sche = build_sche(cfg, model_op, start_iter=start_iter, max_iter=global_tot_it)
+    max_iter = iters_per_train_ep * cfg.epochs
     
-    lg.info(f'==> final args:\n{pformat(vars(args))}\n')
-    lg.info(f'==> final cfg:\n{pformat(cfg)}\n')
+    if rank == 0:
+        lg.info(f'==> final args:\n{pformat(vars(args))}\n')
+        lg.info(f'==> final cfg:\n{pformat(cfg)}\n')
+    
     best_acc = 0
-    tb_lg_freq = max(round(tot_it / 10), 1)
-    val_freqs = [tot_it * 3, round(tot_it / 4)]
+    topk_acc1s = TopKHeap(maxsize=max(1, round(cfg.epochs * 0.05)))
+    tb_lg_freq = max(round(iters_per_train_ep / 3), 1)
     
-    train_loss_avg = AverageMeter(round(tot_it / tb_lg_freq))
-    train_acc_avg = AverageMeter(round(tot_it / tb_lg_freq))
-    speed_avg = AverageMeter(0)
+    epoch_speed = AverageMeter(3)
+    train_loss_avg = AverageMeter(iters_per_train_ep)
+    penalty_avg = AverageMeter(iters_per_train_ep)
+    train_acc_avg = AverageMeter(iters_per_train_ep)
     start_train_t = time.time()
-    for epoch in range(cfg.epochs):
-        is_late = int(epoch > 0.75 * cfg.epochs)
-        
-        # train a epoch
-        last_t = time.time()
-        for it in range(tot_it):
-            inp, tar = next(train_iterator)
-            global_it = tot_it * epoch + it
+    clipping_iters = round(0.05 * iters_per_train_ep * cfg.epochs)
+    for epoch in range(start_ep, cfg.epochs):
+        epoch_start_t = time.time()
+        for it in range(iters_per_train_ep):
+            cur_it = iters_per_train_ep * epoch + it
+            noi_inp, oth_inp, tar = next(emd_iterator)
+            org_inp = noi_inp + oth_inp
             data_t = time.time()
-            sche.step()
-            if using_gpu:
-                inp, tar = inp.cuda(), tar.cuda()
+            noi_inp, oth_inp, tar = noi_inp.cuda(), oth_inp.cuda(), tar.cuda()
             cuda_t = time.time()
             
-            inp = aug(inp)
-            aug_t = time.time()
+            model.eval()
+            with torch.no_grad():
+                feature = model(org_inp, returns_feature=True)
+            model.train()
+            feat_t = time.time()
             
+            # prepare to step
             model_op.zero_grad()
-            outputs = model(inp)
-            # outputs = outputs[0]
-            loss = F.cross_entropy(outputs, tar)
+            sche_mlr = model_sc.step()
+            auger_op.zero_grad()
+            sche_alr = auger_sc.step()
+            prep_t = time.time()
+            
+            alpha = auger(feature)
+            augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k)
+            aug__t = time.time()
+            
+            logits = model(augmented)
+            forw_t = time.time()
+            
+            loss = F.cross_entropy(logits, tar)
             loss.backward()
-            loss_val = loss.item()
-            train_loss_avg.update(loss_val)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+            train_loss_avg.update(loss.item())
+            inverse_grad(auger)
+            back_t = time.time()
+            
+            penalty = cfg.penalty_lambda * (augmented - org_inp).norm()
+            penalty.backward()
+            penalty_avg.update(penalty.item())
+            pena_t = time.time()
+            
+            if cur_it < clipping_iters:
+                orig_m_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.model_grad_clip)
+                orig_a_norm = torch.nn.utils.clip_grad_norm_(auger.parameters(), cfg.auger_grad_clip)
+                actual_mlr = sche_mlr * min(1, cfg.model_grad_clip / orig_m_norm)
+                actual_alr = sche_alr * min(1, cfg.auger_grad_clip / orig_a_norm)
+            else:
+                orig_m_norm = cfg.model_grad_clip
+                orig_a_norm = cfg.auger_grad_clip
+                actual_mlr = sche_mlr
+                actual_alr = sche_alr
+            clip_t = time.time()
+            
             model_op.step()
-            train_t = time.time()
+            auger_op.step()
+            optm_t = time.time()
             
-            predicted = outputs.argmax(dim=1)
-            pred, correct = tar.shape[0], predicted.eq(tar).sum().item() # tar.size(0) i.e. batch_size(or tail batch size)
-            train_acc_avg.update(val=100 * correct / pred, num=pred / cfg.batch_size)
+            preds = logits.argmax(dim=1)
+            tot, correct = tar.shape[0], preds.eq(tar).sum().item()
+            train_acc_avg.update(100 * correct / tot)
             
-            if (global_it % tb_lg_freq == 0 or global_it == global_tot_it - 1) and rank == 0:
-                tb_lg.add_scalar('train_loss', train_loss_avg.avg, global_it)
-                tb_lg.add_scalar('train_acc', train_acc_avg.avg, global_it)
-                tb_lg.add_scalar('lr', sche.get_lr()[0], global_it)
+            if (cur_it == 0 or (cur_it + 1) % tb_lg_freq == 0 or cur_it + 1 == max_iter) and rank == 0:
+                tb_lg.add_scalar('train/loss', train_loss_avg.avg, cur_it)
+                tb_lg.add_scalar('train/penalty', penalty_avg.avg, cur_it)
+                tb_lg.add_scalar('train/acc', train_acc_avg.avg, cur_it)
+                tb_lg.add_scalars(f'clip/model/lr', {'scheduled': sche_mlr}, cur_it)
+                tb_lg.add_scalars(f'clip/auger/lr', {'scheduled': sche_alr}, cur_it)
+                if cur_it < clipping_iters:
+                    tb_lg.add_scalar(f'clip/model/orig_norm', orig_m_norm, cur_it)
+                    tb_lg.add_scalars(f'clip/model/lr', {'actual': actual_mlr}, cur_it)
+                    tb_lg.add_scalar(f'clip/auger/orig_norm', orig_a_norm, cur_it)
+                    tb_lg.add_scalars(f'clip/auger/lr', {'actual': actual_alr}, cur_it)
             
-            if global_it % val_freqs[is_late] == 0 or global_it == global_tot_it - 1:
-                test_loss, test_acc = test(model, tot_test_it, test_iterator)
-                test_t = time.time()
-                test_err = 100 - test_acc
-                model.train()
-                if rank == 0:
-                    remain_secs = (global_tot_it - global_it - 1) * speed_avg.avg
-                    remain_time = datetime.timedelta(seconds=round(remain_secs))
-                    finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + remain_secs))
-                    ep_str = f'%{len(str(cfg.epochs))}d' % (epoch+1)
-                    it_str = f'%{len(str(tot_it))}d' % (it+1)
-                    lg.info(
-                        f'ep[{ep_str}/{cfg.epochs}], it[{it_str}/{tot_it}]:'
-                        f' t-err[{100-train_acc_avg.val:5.2f}] ({100-train_acc_avg.avg:5.2f}),'
-                        f' t-loss[{train_loss_avg.val:.4f}] ({train_loss_avg.avg:.4f}),'
-                        f' v-err[{test_err:5.2f}],'
-                        f' v-loss[{test_loss:.4f}],'
-                        f' data[{data_t-last_t:.3f}],'
-                        f' cuda[{cuda_t-data_t:.3f}],'
-                        f' au[{aug_t-cuda_t:.3f}],'
-                        f' bp[{train_t-aug_t:.3f}],'
-                        f' te[{test_t-train_t:.3f}]'
-                        f' rem-t[{remain_time}] ({finish_time})'
-                        f' lr[{sche.get_lr()[0]:.3g}]'
-                    )
-                    tb_lg.add_scalar('test_loss', test_loss, global_it)
-                    tb_lg.add_scalar('test_acc', test_acc, global_it)
-                    tb_lg.add_scalar('test_err', test_err, global_it)
-                
-                is_best = test_acc > best_acc
+            if it == iters_per_train_ep - 1:  # last iter
+                test_loss, test_acc = test(model, iters_per_test_ep, test_iterator)
+                topk_acc1s.push_q(test_acc)
+                better = test_acc > best_acc
                 best_acc = max(test_acc, best_acc)
-                if rank == 0 and is_best:
-                    model_ckpt_path = os.path.join(args.save_dir, f'best.pth.tar')
-                    lg.info(f'==> Saving best model ckpt (epoch[{epoch}], err{100-test_acc:.3f}) at {os.path.abspath(model_ckpt_path)}...')
+                test_t = time.time()
+                if rank == 0:
+                    remain_time, finish_time = epoch_speed.time_preds(cfg.epochs - (epoch + 1))
+                    sea_lg.create_or_upd_row(
+                        cfg.data.name,
+                        best_acc=best_acc, topk_acc=topk_acc1s.mean,
+                        pr=(epoch + 1) / cfg.epochs, rem=remain_time.seconds, end_t=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + remain_time.seconds)),
+                    )
+                    
+                    ep_str = f'%{len(str(cfg.epochs))}d'
+                    ep_str %= epoch + 1
+                    lg.info(
+                        f'ep[{ep_str}/{cfg.epochs}]:'
+                        f' te-acc[{test_acc:5.2f}],'
+                        f' te-loss[{test_loss:.4f}]'
+                        f' tr-acc[{train_acc_avg.last:5.2f}] ({train_acc_avg.avg:5.2f}),'
+                        f' tr-loss[{train_loss_avg.last:.4f}] ({train_loss_avg.avg:.4f}),'
+                        f' penalty[{penalty_avg.last:.4f}] ({penalty_avg.avg:.4f})\n    '
+                        f' mlr[{sche_mlr:.3g}] ({actual_mlr:.3g}),'
+                        f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        best[{best_acc:5.2f}]\n    '
+                        
+                        f' dat_t[{data_t - epoch_start_t:.3f}],'
+                        f' cud_t[{cuda_t - data_t:.3f}],'
+                        f' fea_t[{feat_t - cuda_t:.3f}],'
+                        f' pre_t[{prep_t - feat_t:.3f}],'
+                        f' aug_t[{aug__t - prep_t:.3f}],'
+                        f' for_t[{forw_t - aug__t:.3f}],'
+                        f' bac_t[{back_t - forw_t:.3f}],'
+                        f' pen_t[{pena_t - back_t:.3f}],'
+                        f' cli_t[{clip_t - pena_t:.3f}],'
+                        f' opt_t[{optm_t - clip_t:.3f}]\n    '
+                        f' tes_t[{test_t - optm_t:.3f}]\n    '
+                        f' rem-t[{str(remain_time)}] ({finish_time})'
+                    )
+                    tb_lg.add_scalar('test/loss', test_loss, cur_it)
+                    tb_lg.add_scalar('test/acc', test_acc, cur_it)
+                    tb_lg.add_scalar('test_ep/loss', test_loss, epoch)
+                    tb_lg.add_scalar('test_ep/acc', test_acc, epoch)
+                
+                if rank == 0 and better:
+                    model_ckpt_path = os.path.join(args.save_path, f'best.pth.tar')
+                    lg.info(f'==> Saving best model ckpt (epoch[{epoch}], iter[{it}], acc{test_acc:5.2f}) at {os.path.abspath(model_ckpt_path)}...')
                     torch.save({
+                        'start_ep': epoch,
                         'model': model.state_dict(),
-                        'op': model_op.state_dict(),
-                        'start_iter': global_it,
+                        'model_op': model_op.state_dict(),
+                        'model_sc': model_sc.state_dict(),
+                        'auger': auger.state_dict(),
+                        'auger_op': auger_op.state_dict(),
+                        'auger_sc': auger_sc.state_dict(),
                     }, model_ckpt_path)
-            
-            speed_avg.update(time.time() - last_t)
-            last_t = time.time()
+        
+        if epoch % 10 == 0:
+            torch.cuda.empty_cache()
+        epoch_speed.update(time.time() - epoch_start_t)
     
+    topk_acc = topk_acc1s.mean
     if rank == 0:
         if link_dist:
             best_accs = torch.zeros(world_size)
+            topk_accs = torch.zeros(world_size)
             best_accs[rank] = best_acc
+            topk_accs[rank] = topk_acc
             link.allreduce(best_accs)
-            best_errs = 100 - best_accs
-            lg.info(
-                f'==> End training,'
-                f' total time cost: {time.time()-start_train_t:.3f},'
-                f' best test err @1: {best_errs.mean().item():.3f} ({best_errs.min().item():.3f})'
+            link.allreduce(topk_accs)
+            best_acc = best_accs.mean().item()
+            topk_acc = topk_accs.mean().item()
+            performance_str = (
+                f' topk acc: mean: {topk_accs.mean().item():5.2f} (max: {topk_accs.max().item():5.2f}, std: {topk_accs.std():4.2f}), vals: {str(topk_accs).replace(chr(10), " ")}'
+                f'@best acc: mean: {best_accs.mean().item():5.2f} (max: {best_accs.max().item():5.2f}, std: {best_accs.std():4.2f}), vals: {str(best_accs).replace(chr(10), " ")}\n'
             )
+        
         else:
+            performance_str = (
+                f'@best acc: {best_acc:5.2f},'
+                f' topk acc: {topk_acc:5.2f}'
+            )
+        
+        if rank == 0:
             lg.info(
                 f'==> End training,'
-                f' total time cost: {time.time()-start_train_t:.3f},'
-                f' best test err @1: {100-best_acc:.3f}'
+                f' total time cost: {time.time() - start_train_t:.3f}\n'
+                f'{performance_str}'
+            )
+            lines = performance_str.splitlines()
+            strs = ''.join([f'# {l}\n' for l in lines])
+            with open(args.sh_name, 'a') as fp:
+                print(f'\n# {args.exp_dir_name}:\n{strs}', file=fp)
+            sea_lg.create_or_upd_row(
+                cfg.data.name,
+                best_acc=best_acc, topk_acc=topk_acc,
+                pr=1, rem=0, end_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             )
     
     tb_lg.close()
