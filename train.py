@@ -199,8 +199,6 @@ def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
         lg.info(f'==> Building model complete, type: {type(model)}, param: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} * 10^6.\n')
     
     auger = Augmenter(model.feature_dim)
-    if cfg.init_auger:
-        init_params(auger, output=None if rank != 0 else lg.info)
     if loaded_ckpt is not None:
         auger.load_state_dict(loaded_ckpt['auger'])
     if rank == 0:
@@ -298,11 +296,14 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     epoch_speed = AverageMeter(3)
     train_loss_avg = AverageMeter(iters_per_train_ep)
     penalty_avg = AverageMeter(iters_per_train_ep)
+    alpha_A_avg = AverageMeter(iters_per_train_ep)
+    alpha_B_avg = AverageMeter(iters_per_train_ep)
     train_acc_avg = AverageMeter(iters_per_train_ep)
     start_train_t = time.time()
     clipping_iters = round(0.05 * iters_per_train_ep * cfg.epochs)
     for epoch in range(start_ep, cfg.epochs):
         epoch_start_t = time.time()
+        last_t = time.time()
         for it in range(iters_per_train_ep):
             cur_it = iters_per_train_ep * epoch + it
             noi_inp, oth_inp, tar = next(emd_iterator)
@@ -318,6 +319,10 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             feat_t = time.time()
             
             alpha = auger(feature)
+            ma, mb = alpha.mean(dim=0)
+            ma, mb = ma.item(), mb.item()
+            alpha_A_avg.update(ma)
+            alpha_B_avg.update(mb)
             augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k)
             aug__t = time.time()
             
@@ -364,14 +369,16 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             if (cur_it == 0 or (cur_it + 1) % tb_lg_freq == 0 or cur_it + 1 == max_iter) and rank == 0:
                 tb_lg.add_scalar('train/loss', train_loss_avg.avg, cur_it)
                 tb_lg.add_scalar('train/penalty', penalty_avg.avg, cur_it)
+                tb_lg.add_scalar('train/alpha/A_std', alpha_A_avg.avg, cur_it)
+                tb_lg.add_scalar('train/alpha/B_std', alpha_B_avg.avg, cur_it)
                 tb_lg.add_scalar('train/acc', train_acc_avg.avg, cur_it)
-                tb_lg.add_scalars(f'clip/model/lr', {'scheduled': sche_mlr}, cur_it)
-                tb_lg.add_scalars(f'clip/auger/lr', {'scheduled': sche_alr}, cur_it)
+                tb_lg.add_scalars(f'step/model/lr', {'scheduled': sche_mlr}, cur_it)
+                tb_lg.add_scalars(f'step/auger/lr', {'scheduled': sche_alr}, cur_it)
                 if cur_it < clipping_iters:
-                    tb_lg.add_scalar(f'clip/model/orig_norm', orig_m_norm, cur_it)
-                    tb_lg.add_scalars(f'clip/model/lr', {'actual': actual_mlr}, cur_it)
-                    tb_lg.add_scalar(f'clip/auger/orig_norm', orig_a_norm, cur_it)
-                    tb_lg.add_scalars(f'clip/auger/lr', {'actual': actual_alr}, cur_it)
+                    tb_lg.add_scalar(f'step/model/orig_norm', orig_m_norm, cur_it)
+                    tb_lg.add_scalars(f'step/model/lr', {'actual': actual_mlr}, cur_it)
+                    tb_lg.add_scalar(f'step/auger/orig_norm', orig_a_norm, cur_it)
+                    tb_lg.add_scalars(f'step/auger/lr', {'actual': actual_alr}, cur_it)
             
             if it == iters_per_train_ep - 1:  # last iter
                 test_loss, test_acc = test(model, iters_per_test_ep, test_iterator)
@@ -399,7 +406,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         f' mlr[{sche_mlr:.3g}] ({actual_mlr:.3g}),'
                         f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        best[{best_acc:5.2f}]\n    '
                         
-                        f' dat_t[{data_t - epoch_start_t:.3f}],'
+                        f' dat_t[{data_t - last_t:.3f}],'
                         f' cud_t[{cuda_t - data_t:.3f}],'
                         f' fea_t[{feat_t - cuda_t:.3f}],'
                         f' aug_t[{aug__t - feat_t:.3f}],'
@@ -428,6 +435,8 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         'auger_op': auger_op.state_dict(),
                         'auger_sc': auger_sc.state_dict(),
                     }, model_ckpt_path)
+                
+            last_t = time.time()
         
         torch.cuda.empty_cache()
         epoch_speed.update(time.time() - epoch_start_t)

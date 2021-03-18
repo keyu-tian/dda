@@ -14,7 +14,7 @@ tag_choices = [
     'Asgd', 'Aadm', 'Aamw',
     'Acon', 'Acos', 'Apla',
 ]
-# best=round({bac}, 2), topk=round({kac}, 2) ({exp})
+# best= {bac} ,  topk= {kac} , ({exp})
 
 
 class SeatableLogger(object):

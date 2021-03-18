@@ -1,11 +1,10 @@
 seed: ~
 aug_k: 0.5
 epochs: &epochs 2000
-penalty_lambda: 1
+penalty_lambda: 2
 model_grad_clip: 16.0
 auger_grad_clip: 1.0
 init_model: True
-init_auger: True
 ckpt_path: ~
 
 data:
