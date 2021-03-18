@@ -4,9 +4,9 @@ from abc import ABCMeta, abstractmethod
 
 
 class _WarmupScheduler(metaclass=ABCMeta):
-    def __init__(self, op, max_lr: float, max_steps: int):
-        self.op, self.max_lr, self.max_steps = op, max_lr, max_steps
-        self.warmup_steps = max(round(self.max_steps / 200), 1)
+    def __init__(self, op, max_lr: float, max_step: int):
+        self.op, self.max_lr, self.max_step = op, max_lr, max_step
+        self.warmup_steps = max(round(self.max_step / 200), 1)
         self.initial_lr = self.max_lr / 10
         self.cur_step = 0
         self.last_lr = -1
@@ -50,7 +50,7 @@ class ConstantScheduler(_WarmupScheduler):
 
 class CosineScheduler(_WarmupScheduler):
     def get_lr(self):
-        ratio = (self.cur_step - self.warmup_steps) / (self.max_steps - 1 - self.warmup_steps)
+        ratio = (self.cur_step - self.warmup_steps) / (self.max_step - 1 - self.warmup_steps)
         return self.max_lr * 0.5 * (1. + math.cos(math.pi * ratio))
 
     def state_dict(self):
@@ -63,8 +63,8 @@ class CosineScheduler(_WarmupScheduler):
 
 
 class ReduceOnPlateau(_WarmupScheduler):
-    def __init__(self, op, max_lr, max_steps, **kwargs):
-        super().__init__(op, max_lr, max_steps)
+    def __init__(self, op, max_lr, max_step, **kwargs):
+        super().__init__(op, max_lr, max_step)
         self.sc = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.op, factor=1 / pow(2, 1 / 3),
             **kwargs,
