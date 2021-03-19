@@ -72,7 +72,7 @@ def main():
         if not final and not first and dd == last_dd:
             terminate(terminate_file)
             continue
-        
+            
         first = False
         last_dd = dd
         attempts, max_att = 0, 5
@@ -90,7 +90,8 @@ def main():
         logging |= created
         if logging:
             print(colorama.Fore.LIGHTBLUE_EX + f'[monitor] {"created" if created else "updated"}')
-    
+        terminate(terminate_file)
+
 
 if __name__ == '__main__':
     main()
