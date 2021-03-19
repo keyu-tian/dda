@@ -14,6 +14,7 @@ tag_choices = [
     'Mcon', 'Mcos', 'Mpla',
     'Asgd', 'Aadm', 'Aamw',
     'Acon', 'Acos', 'Apla',
+    'Naug', 'Raug', 'Rfea',
 ]
 # best= {bac} ,  topk= {kac} , ({exp})
 

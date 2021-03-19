@@ -65,6 +65,13 @@ def inverse_grad(module: torch.nn.Module):
             p.grad.neg_()
 
 
+def flatten_grads(module: torch.nn.Module):
+    return torch.cat([
+        p.grad.reshape(-1)
+        for p in module.parameters() if p.grad is not None
+    ])
+    
+
 class TopKHeap(list):
     
     def __init__(self, maxsize):

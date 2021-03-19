@@ -19,7 +19,7 @@ from data.sampler import InfiniteBatchSampler
 from data.ucr import UCRTensorDataSet, ALL_NAMES
 from model import model_entry
 from model.augmenter import Augmenter
-from utils.misc import create_exp_dir, create_logger, init_params, AverageMeter, inverse_grad, TopKHeap, time_str
+from utils.misc import create_exp_dir, create_logger, init_params, AverageMeter, inverse_grad, TopKHeap, time_str, flatten_grads
 from utils.scheduler import ConstantScheduler, CosineScheduler, ReduceOnPlateau
 from utils.seatable import SeatableLogger
 
@@ -247,6 +247,10 @@ def build_op_and_sc(op_cfg, sc_cfg, iters_per_epoch, network, loaded_ckpt, load_
 def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader):
     # Initialize.
     # todo: set_seed
+    ablation = cfg.get('ablation', '')
+    no_aug = ablation == 'no_aug'
+    random_aug = ablation == 'random_aug'
+    random_feature = ablation == 'random_feature'
     
     sea_lg = SeatableLogger(args.exp_path) if rank == 0 else None
     
@@ -263,13 +267,14 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     if rank == 0:
         lambda_kw = {chr(955): cfg.penalty_lambda}
         op_sc_kw = {m_op_tag: True, m_sc_tag: True, a_op_tag: True, a_sc_tag: True}
+        ablation_kw = {'Naug': no_aug, 'Raug': random_aug, 'Rfea': random_feature}
         print(colorama.Fore.CYAN + f'op_sc_kw=\n {pformat(op_sc_kw)}')
         sea_lg.create_or_upd_row(
             cfg.data.name, vital=True,
             m=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
             p=cfg.aug_prob, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
-            **lambda_kw, **op_sc_kw,
+            **lambda_kw, **op_sc_kw, **ablation_kw,
         )
     
     if loaded_ckpt is not None:
@@ -283,10 +288,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     test_iterator = iter(test_loader)
     max_iter = iters_per_train_ep * cfg.epochs
 
-    ablation = cfg.get('ablation', '')
-    no_aug = ablation == 'no_aug'
-    random_aug = ablation == 'random_aug'
-    random_feature = ablation == 'random_feature'
+    
     
     if rank == 0:
         lg.info(f'==> ablation={ablation}, iters_per_train_ep={iters_per_train_ep}')
@@ -353,9 +355,13 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             back_t = time.time()
 
             if backward_to_auger:
+                loss_grads = flatten_grads(auger)
+                loss_grads_norm = loss_grads.norm().item()
                 penalty = cfg.penalty_lambda * (augmented - org_inp).norm() / org_inp.norm()
                 penalty.backward()
+                pena_grads_norm = flatten_grads(auger).sub_(loss_grads).norm().item()
             else:
+                loss_grads_norm = pena_grads_norm = -1
                 penalty = torch.tensor(-1)
             penalty_avg.update(penalty.item())
             pena_t = time.time()
@@ -400,6 +406,8 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 tb_lg.add_scalar(f'step/model/orig_norm', orig_m_norm, cur_it)
                 tb_lg.add_scalars(f'step/model/lr', {'actual': actual_mlr}, cur_it)
                 tb_lg.add_scalar(f'step/auger/orig_norm', orig_a_norm, cur_it)
+                tb_lg.add_scalar(f'step/auger/orig_loss_norm', loss_grads_norm, cur_it)
+                tb_lg.add_scalar(f'step/auger/orig_pena_norm', pena_grads_norm, cur_it)
                 tb_lg.add_scalars(f'step/auger/lr', {'actual': actual_alr}, cur_it)
             
             if it == iters_per_train_ep - 1:  # last iter
