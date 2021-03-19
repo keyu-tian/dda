@@ -282,9 +282,14 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     emd_iterator = iter(emd_loader)
     test_iterator = iter(test_loader)
     max_iter = iters_per_train_ep * cfg.epochs
+
+    ablation = cfg.get('ablation', '')
+    no_aug = ablation == 'no_aug'
+    random_aug = ablation == 'random_aug'
+    random_feature = ablation == 'random_feature'
     
     if rank == 0:
-        lg.info(f'==> iters_per_train_ep={iters_per_train_ep}')
+        lg.info(f'==> ablation={ablation}, iters_per_train_ep={iters_per_train_ep}')
         lg.info(f'==> final args:\n{pformat(vars(args))}\n')
         lg.info(f'==> final cfg:\n{pformat(cfg)}\n')
     
@@ -292,7 +297,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     topk_acc1s = TopKHeap(maxsize=max(1, round(cfg.epochs * 0.05)))
     tb_lg_freq = max(round(iters_per_train_ep / 2), 1)
     lg_freq = max(round(cfg.epochs * 0.02), 1)
-    
+
     epoch_speed = AverageMeter(3)
     train_loss_avg = AverageMeter(iters_per_train_ep)
     penalty_avg = AverageMeter(iters_per_train_ep)
@@ -312,20 +317,28 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             cuda_t = time.time()
             
             org_inp = noi_inp + oth_inp
-            model.eval()
-            with torch.no_grad():
-                feature = model(org_inp, returns_feature=True)
-            model.train()
+            if random_feature:
+                feature = torch.randn(tar.shape[0], model.feature_dim)
+            else:
+                model.eval()
+                with torch.no_grad():
+                    feature = model(org_inp, returns_feature=True)
+                model.train()
             feat_t = time.time()
             
-            alpha = auger(feature)
-            ma, mb = alpha.mean(dim=0)
-            ma, mb = ma.item(), mb.item()
-            alpha_A_avg.update(ma)
-            alpha_B_avg.update(mb)
-            augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_prob)
-            aug__t = time.time()
+            if no_aug:
+                augmented = noi_inp + oth_inp
+            elif random_aug:
+                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, None, cfg.aug_prob)
+            else:
+                alpha = auger(feature)
+                ma, mb = alpha.mean(dim=0)
+                ma, mb = ma.item(), mb.item()
+                alpha_A_avg.update(ma)
+                alpha_B_avg.update(mb)
+                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_prob)
             
+            aug__t = time.time()
             logits = model(augmented)
             forw_t = time.time()
 
@@ -333,13 +346,17 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             auger_op.zero_grad()
             
             loss = F.cross_entropy(logits, tar)
-            loss.backward(retain_graph=True)    # todo: 好像逃不掉retain... 否则两次aug的随机性不一致会出问题，loss和penalty就解耦了，这样不行。
+            backward_to_auger = not no_aug and not random_aug
+            loss.backward(retain_graph=backward_to_auger)    # todo: 好像逃不掉retain... 否则两次aug的随机性不一致会出问题，loss和penalty就解耦了，这样不行。
             train_loss_avg.update(loss.item())
             inverse_grad(auger)
             back_t = time.time()
 
-            penalty = cfg.penalty_lambda * (augmented - org_inp).norm() / org_inp.norm()
-            penalty.backward()
+            if backward_to_auger:
+                penalty = cfg.penalty_lambda * (augmented - org_inp).norm() / org_inp.norm()
+                penalty.backward()
+            else:
+                penalty = torch.tensor(-1)
             penalty_avg.update(penalty.item())
             pena_t = time.time()
 
@@ -348,9 +365,13 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             
             # if cur_it < clipping_iters:   # todo: clipping all the time
             orig_m_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.model_grad_clip)
-            orig_a_norm = torch.nn.utils.clip_grad_norm_(auger.parameters(), cfg.auger_grad_clip)
             actual_mlr = sche_mlr * min(1, cfg.model_grad_clip / orig_m_norm)
-            actual_alr = sche_alr * min(1, cfg.auger_grad_clip / orig_a_norm)
+            if backward_to_auger:
+                orig_a_norm = torch.nn.utils.clip_grad_norm_(auger.parameters(), cfg.auger_grad_clip)
+                actual_alr = sche_alr * min(1, cfg.auger_grad_clip / orig_a_norm)
+            else:
+                orig_a_norm = -1
+                actual_alr = sche_alr
             # else:
             #     orig_m_norm = cfg.model_grad_clip
             #     orig_a_norm = cfg.auger_grad_clip
@@ -359,7 +380,8 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             clip_t = time.time()
 
             model_op.step()
-            auger_op.step()
+            if backward_to_auger:
+                auger_op.step()
             optm_t = time.time()
             
             preds = logits.argmax(dim=1)
@@ -439,7 +461,8 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 
             last_t = time.time()
         
-        torch.cuda.empty_cache()
+        if epoch % 10 == 0:
+            torch.cuda.empty_cache()
         epoch_speed.update(time.time() - epoch_start_t)
     
     topk_acc = topk_acc1s.mean
