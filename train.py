@@ -321,7 +321,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             
             org_inp = noi_inp + oth_inp
             if random_feature:
-                feature = torch.randn(tar.shape[0], model.feature_dim)
+                feature = torch.randn(tar.shape[0], model.feature_dim).cuda()
             else:
                 model.eval()
                 with torch.no_grad():
