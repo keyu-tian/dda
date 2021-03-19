@@ -398,7 +398,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                     tb_lg.add_scalar('test_ep/loss', test_loss, epoch)
                     tb_lg.add_scalar('test_ep/acc', test_acc, epoch)
                     
-                    if epoch % lg_freq == 0:
+                    if epoch % lg_freq == 0 or epoch == cfg.epochs - 1:
                         ep_str = f'%{len(str(cfg.epochs))}d'
                         ep_str %= epoch + 1
                         lg.info(
