@@ -44,8 +44,9 @@ class SeatableLogger(object):
         tags = []
         new_kw = deepcopy(kwargs)
         for k, v in kwargs.items():
-            if k in tag_choices and v:
-                tags.append(k)
+            if k in tag_choices:
+                if v:
+                    tags.append(k)
                 new_kw.pop(k)
         
         kwargs = new_kw
