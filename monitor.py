@@ -8,6 +8,13 @@ import colorama
 from seatable_api import Base
 
 
+def terminate(terminate_file):
+    if os.path.exists(terminate_file):
+        os.remove(terminate_file)
+        print(colorama.Fore.CYAN + '[monitor] terminated.')
+        exit(-1)
+
+
 def create_or_upd_explore_table(base, table_name, rid, dd):
     if rid is None:
         q = base.filter(table_name, f"exp_path='{dd['exp_path']}'")
@@ -39,11 +46,7 @@ def main():
     
     while not os.path.exists(seatable_file):
         time.sleep(20)
-        print(colorama.Fore.GREEN + f'[monitor] waiting for the seatable file at {seatable_file} ...')
-        if os.path.exists(terminate_file):
-            os.remove(terminate_file)
-            print(colorama.Fore.CYAN + '[monitor] terminated.')
-            exit(-1)
+        terminate(terminate_file)
     
     with open(seatable_file, 'r') as fp:
         last_dd = json.load(fp)
@@ -51,11 +54,6 @@ def main():
     first = True
     rid = None
     while True:
-        if os.path.exists(terminate_file):
-            os.remove(terminate_file)
-            print(colorama.Fore.CYAN + '[monitor] terminated.')
-            exit(-1)
-            
         time.sleep(10)
         attempts, max_att = 0, 5
         while attempts < max_att:
@@ -72,6 +70,7 @@ def main():
         
         final = dd['pr'] > 0.99999
         if not final and not first and dd == last_dd:
+            terminate(terminate_file)
             continue
         
         first = False
