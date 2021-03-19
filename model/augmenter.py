@@ -9,7 +9,7 @@ class Augmenter(nn.Module):
         super().__init__()
         self.fc = MLP(input_size=feature_dim, num_classes=2, bn0=False, base_hidden_dim=200, num_layers=3)
         torch.nn.init.normal_(self.fc.classifier.weight, std=0.001)
-        torch.nn.init.constant_(self.fc.classifier.bias, 0.)
+        torch.nn.init.constant_(self.fc.classifier.bias, -3)    # (-3).sigmoid ~ 0.05
 
     def forward(self, fea):
         # alpha: (bs, 2)
