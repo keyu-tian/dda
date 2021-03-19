@@ -426,7 +426,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                 
                 if rank == 0 and better:
                     model_ckpt_path = os.path.join(args.save_path, f'best.pth.tar')
-                    lg.info(f'==> Saving best model ckpt (epoch[{epoch}], iter[{it}], acc{test_acc:5.2f}) at {os.path.abspath(model_ckpt_path)}...')
+                    print(colorama.Fore.CYAN + f'==> The best ckpt saved (ep[{epoch}], it[{it}], acc{test_acc:5.2f}) at {os.path.abspath(model_ckpt_path)}')
                     torch.save({
                         'start_ep': epoch,
                         'model': model.state_dict(),
