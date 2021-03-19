@@ -291,6 +291,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
     best_acc = 0
     topk_acc1s = TopKHeap(maxsize=max(1, round(cfg.epochs * 0.05)))
     tb_lg_freq = max(round(iters_per_train_ep / 2), 1)
+    lg_freq = max(round(cfg.epochs * 0.02), 1)
     
     epoch_speed = AverageMeter(3)
     train_loss_avg = AverageMeter(iters_per_train_ep)
@@ -392,35 +393,36 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         be_ac=best_acc, tk_ac=topk_acc1s.mean,
                         pr=(epoch + 1) / cfg.epochs, rem=remain_time.seconds, end_t=(datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')) + datetime.timedelta(seconds=remain_time.seconds)).strftime('%Y-%m-%d %H:%M:%S'),
                     )
-                    
-                    ep_str = f'%{len(str(cfg.epochs))}d'
-                    ep_str %= epoch + 1
-                    lg.info(
-                        f'ep[{ep_str}/{cfg.epochs}]:'
-                        f' te-acc[{test_acc:5.2f}],'
-                        f' te-loss[{test_loss:.4f}]'
-                        f' tr-acc[{train_acc_avg.last:5.2f}] ({train_acc_avg.avg:5.2f}),'
-                        f' tr-loss[{train_loss_avg.last:.4f}] ({train_loss_avg.avg:.4f}),'
-                        f' penalty[{penalty_avg.last:.4f}] ({penalty_avg.avg:.4f})\n    '
-                        f' mlr[{sche_mlr:.3g}] ({actual_mlr:.3g}),'
-                        f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        best[{best_acc:5.2f}]\n    '
-                        
-                        f' dat_t[{data_t - last_t:.3f}],'
-                        f' cud_t[{cuda_t - data_t:.3f}],'
-                        f' fea_t[{feat_t - cuda_t:.3f}],'
-                        f' aug_t[{aug__t - feat_t:.3f}],'
-                        f' for_t[{forw_t - aug__t:.3f}],'
-                        f' bac_t[{back_t - forw_t:.3f}],'
-                        f' pen_t[{pena_t - back_t:.3f}],'
-                        f' cli_t[{clip_t - pena_t:.3f}],'
-                        f' opt_t[{optm_t - clip_t:.3f}]\n    '
-                        f' tes_t[{test_t - optm_t:.3f}]\n    '
-                        f' rem-t[{str(remain_time)}] ({finish_time})'
-                    )
                     tb_lg.add_scalar('test/loss', test_loss, cur_it)
                     tb_lg.add_scalar('test/acc', test_acc, cur_it)
                     tb_lg.add_scalar('test_ep/loss', test_loss, epoch)
                     tb_lg.add_scalar('test_ep/acc', test_acc, epoch)
+                    
+                    if epoch % lg_freq == 0:
+                        ep_str = f'%{len(str(cfg.epochs))}d'
+                        ep_str %= epoch + 1
+                        lg.info(
+                            f'ep[{ep_str}/{cfg.epochs}]:'
+                            f' te-acc[{test_acc:5.2f}],'
+                            f' te-loss[{test_loss:.4f}]'
+                            f' tr-acc[{train_acc_avg.last:5.2f}] ({train_acc_avg.avg:5.2f}),'
+                            f' tr-loss[{train_loss_avg.last:.4f}] ({train_loss_avg.avg:.4f}),'
+                            f' penalty[{penalty_avg.last:.4f}] ({penalty_avg.avg:.4f})\n    '
+                            f' mlr[{sche_mlr:.3g}] ({actual_mlr:.3g}),'
+                            f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        best[{best_acc:5.2f}]\n    '
+                            
+                            f' dat_t[{data_t - last_t:.3f}],'
+                            f' cud_t[{cuda_t - data_t:.3f}],'
+                            f' fea_t[{feat_t - cuda_t:.3f}],'
+                            f' aug_t[{aug__t - feat_t:.3f}],'
+                            f' for_t[{forw_t - aug__t:.3f}],'
+                            f' bac_t[{back_t - forw_t:.3f}],'
+                            f' pen_t[{pena_t - back_t:.3f}],'
+                            f' cli_t[{clip_t - pena_t:.3f}],'
+                            f' opt_t[{optm_t - clip_t:.3f}]\n    '
+                            f' tes_t[{test_t - optm_t:.3f}]\n    '
+                            f' rem-t[{str(remain_time)}] ({finish_time})'
+                        )
                 
                 if rank == 0 and better:
                     model_ckpt_path = os.path.join(args.save_path, f'best.pth.tar')
