@@ -1,8 +1,8 @@
 seed: ~
 aug_k: 0
 epochs: &epochs 2000
-penalty_lambda: 10
-model_grad_clip: 10.0
+penalty_lambda: 20
+model_grad_clip: 16.0
 auger_grad_clip: 1.0
 init_model: False
 ckpt_path: ~
@@ -36,8 +36,8 @@ model_sc:
         mode: min
         max_lr: 1e-3
         epochs: *epochs
-        min_lr: 0.0001
-        patience_ratio: 0.01
+        min_lr: 1e-5
+        patience_ratio: 0.03
 
 
 auger_op:

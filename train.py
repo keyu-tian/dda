@@ -171,12 +171,11 @@ def test(model, tot_it, test_iterator):
             logits = model(inp)
             loss = F.cross_entropy(logits, tar)
             
-            tot_loss += loss.item()
-            predicted = logits.argmax(dim=1)
             tot_pred += tar.shape[0]
-            tot_correct += predicted.eq(tar).sum().item()
+            tot_loss += loss.item() * tar.shape[0]
+            tot_correct += logits.argmax(dim=1).eq(tar).sum().item()
     model.train()
-    return tot_loss / tot_it, 100. * tot_correct / tot_pred
+    return tot_loss / tot_pred, 100. * tot_correct / tot_pred
 
 
 def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
@@ -196,13 +195,13 @@ def build_model_and_auger(cfg, lg, rank, loaded_ckpt):
     if loaded_ckpt is not None:
         model.load_state_dict(loaded_ckpt['model'])
     if rank == 0:
-        lg.info(f'==> Building model complete, type: {type(model)}, param: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} * 10^6.\n')
+        lg.info(f'==> Building model complete, type: {type(model)}, params: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} * 10^6.\n')
     
     auger = Augmenter(model.feature_dim)
     if loaded_ckpt is not None:
         auger.load_state_dict(loaded_ckpt['auger'])
     if rank == 0:
-        lg.info(f'==> Building augmenter complete, type: {type(auger)}, param: {sum(p.numel() for p in auger.parameters()) / 1e6:.3f} * 10^6.\n')
+        lg.info(f'==> Building augmenter complete, type: {type(auger)}, params: {sum(p.numel() for p in auger.parameters()) / 1e6:.3f} * 10^6.\n')
     
     return model.cuda(), auger.cuda()
 
