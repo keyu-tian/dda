@@ -9,14 +9,14 @@ from utils.misc import set_seed
 
 set_seed(0)
 data_set = UCRTensorDataSet(
-    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', 'AllGestureWiimoteX',
+    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', 'Adiac',
     train=True, emd=False
 )
 
 
 # Define signal
 name = 'InlineSkate'
-S: np.ndarray = data_set[0][0].numpy()
+S: np.ndarray = data_set[0][0][0].numpy()
 print(S.shape)
 t = np.linspace(0, -1, S.shape[0])
 # noise = np.abs(S).mean() * 0.1 * np.random.randn(*t.shape)
