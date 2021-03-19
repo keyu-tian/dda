@@ -17,10 +17,10 @@ def emd(signal: np.ndarray, eemd=True, num_workers=None) -> Tuple[np.ndarray, np
     return np_noisy_IMF, np_sum_of_other_IMFs
 
 
-def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, k=0.5, aug_prob=1) -> tc.Tensor:
+def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, aug_prob=0.5) -> tc.Tensor:
     # batch: (bs, 1, sig_len)
     bs, dev = noise_batch.shape[0], noise_batch.device
-    sig_len = noise_batch[0].shape[-1]
+    # sig_len = noise_batch[0].shape[-1]
     
     # alpha: (bs, 2)
     if alpha is None:  # random aug
@@ -31,16 +31,15 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
         sigmas = alpha * tc.bernoulli(tc.empty(bs, 1), aug_prob).to(device=dev)
     else:
         sigmas = alpha
-    sigmas *= tc.bernoulli(tc.empty(bs, 2), k).to(device=dev)
     
     # sigma: (bs, 1, 1)
     sigma1, sigma2 = sigmas[:, 0:1].unsqueeze(-1), sigmas[:, 1:2].unsqueeze(-1)
-    std_norm1 = tc.randn((bs, 1, sig_len), device=dev)
-    std_norm2 = tc.randn((bs, 1, sig_len), device=dev) / 2
-    # A or B: (bs, 1, sig_len)
+    std_norm1 = tc.randn((bs, 1, 1), device=dev)
+    std_norm2 = tc.randn((bs, 1, 1), device=dev) / 2
+    # A or B: (bs, 1, 1)
     A = sigma1 * std_norm1 + 1
     B = sigma2 * std_norm2
-    augmented = A * noise_batch + B
+    augmented = A * noise_batch + B # todo: remove B?
     
     return augmented + others_batch
 
@@ -104,7 +103,7 @@ def test_backward():
     alpha.retain_grad()
     
     stt = time.time()
-    augment_and_aggregate_batch(b1, b2, alpha, k=0.5, aug_prob=0.8).mean().backward()
+    augment_and_aggregate_batch(b1, b2, alpha, aug_prob=0.8).mean().backward()
     print(f'time cost: {(time.time() - stt) * 1000:.2f}ms')
     
     print(alpha.grad.abs().mean(dim=0))

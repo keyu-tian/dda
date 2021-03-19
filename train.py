@@ -267,7 +267,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
         sea_lg.create_or_upd_row(
             cfg.data.name, vital=True,
             m=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
-            k=cfg.aug_k, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
+            p=cfg.aug_prob, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             **lambda_kw, **op_sc_kw,
         )
@@ -323,7 +323,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
             ma, mb = ma.item(), mb.item()
             alpha_A_avg.update(ma)
             alpha_B_avg.update(mb)
-            augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_k)
+            augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_prob)
             aug__t = time.time()
             
             logits = model(augmented)

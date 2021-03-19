@@ -7,16 +7,14 @@ from data.ucr import UCRTensorDataSet
 from utils.misc import set_seed
 
 
+name = 'Adiac'
 set_seed(0)
 data_set = UCRTensorDataSet(
-    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', 'Adiac',
+    r'C:\Users\16333\Desktop\PyCharm\dda\UCRTensorData_CEEM', name,
     train=True, emd=False
 )
 
-
-# Define signal
-name = 'InlineSkate'
-S: np.ndarray = data_set[0][0][0].numpy()
+S: np.ndarray = data_set[-5][0][0].numpy()
 print(S.shape)
 t = np.linspace(0, -1, S.shape[0])
 # noise = np.abs(S).mean() * 0.1 * np.random.randn(*t.shape)
@@ -57,13 +55,16 @@ for clz, clz_name in EMD_clz:
         plt.ylabel('noise')
         plt.locator_params(axis='y', nbins=5)
 
-    a = np.linalg.norm(eIMFs[0]) * 0.1
-    aug = eIMFs[0] * (0.6 * a * np.random.randn(*t.shape) + 1)
-    aug += 0.1 * a * np.random.randn(*t.shape)
+    # a = np.linalg.norm(eIMFs[0]) * 0.5
+    # aug = eIMFs[0] * (0.6 * a * np.random.randn(*t.shape) + 1)
+    # aug += 0.1 * a * np.random.randn(*t.shape)
+    A, B = 0.04 * np.random.randn(1).item(), 0.02 * np.random.randn(1).item()
+    aug = (A + 1) * eIMFs[0] + B
     
     plt.subplot(rows, 1, 1 + inj)
     plt.plot(t, aug, 'b')
-    plt.ylabel(f'aug.a={a:.2g}')
+    # plt.ylabel(f'aug.a={a:.2g}')
+    plt.ylabel(f'A,B={A:.1g},{B:.1g}')
     plt.locator_params(axis='y', nbins=5)
     
     for i in range(nIMFs):
