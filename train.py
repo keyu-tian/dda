@@ -403,13 +403,13 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                         ep_str %= epoch + 1
                         lg.info(
                             f'ep[{ep_str}/{cfg.epochs}]:'
-                            f' te-acc[{test_acc:5.2f}],'
-                            f' te-loss[{test_loss:.4f}]'
-                            f' tr-acc[{train_acc_avg.last:5.2f}] ({train_acc_avg.avg:5.2f}),'
-                            f' tr-loss[{train_loss_avg.last:.4f}] ({train_loss_avg.avg:.4f}),'
-                            f' penalty[{penalty_avg.last:.4f}] ({penalty_avg.avg:.4f})\n    '
+                            f' te-ac[{test_acc:5.2f}],'
+                            f' te-lo[{test_loss:.4f}]'
+                            f' tr-ac[{train_acc_avg.last:5.2f}] ({train_acc_avg.avg:5.2f}),'
+                            f' tr-lo[{train_loss_avg.last:.4f}] ({train_loss_avg.avg:.4f}),'
+                            f' pnt[{penalty_avg.last:.4f}] ({penalty_avg.avg:.4f}), '
                             f' mlr[{sche_mlr:.3g}] ({actual_mlr:.3g}),'
-                            f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        best[{best_acc:5.2f}]\n    '
+                            f' alr[{sche_alr:.3g}] ({actual_alr:.3g})        be[{best_acc:5.2f}]\n    '
                             
                             f' dat_t[{data_t - last_t:.3f}],'
                             f' cud_t[{cuda_t - data_t:.3f}],'
@@ -419,8 +419,8 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
                             f' bac_t[{back_t - forw_t:.3f}],'
                             f' pen_t[{pena_t - back_t:.3f}],'
                             f' cli_t[{clip_t - pena_t:.3f}],'
-                            f' opt_t[{optm_t - clip_t:.3f}]\n    '
-                            f' tes_t[{test_t - optm_t:.3f}]\n    '
+                            f' opt_t[{optm_t - clip_t:.3f}],'
+                            f' tes_t[{test_t - optm_t:.3f}],'
                             f' rem-t[{str(remain_time)}] ({finish_time})'
                         )
                 
