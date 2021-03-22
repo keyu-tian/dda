@@ -2,7 +2,7 @@ seed: ~
 aug_prob: 0.5
 epochs: &epochs 2000
 penalty_lambda: 1
-model_grad_clip: 16.0f
+model_grad_clip: 16.0
 auger_grad_clip: 1.0
 init_model: False
 ckpt_path: ~
