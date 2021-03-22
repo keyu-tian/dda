@@ -269,7 +269,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
         op_sc_kw = {m_op_tag: True, m_sc_tag: True, a_op_tag: True, a_sc_tag: True}
         ablation_kw = {'Naug': no_aug, 'Raug': random_aug, 'Rfea': random_feature}
         print(colorama.Fore.CYAN + f'op_sc_kw=\n {pformat(op_sc_kw)}')
-        print(colorama.Fore.CYAN + f'ablation_kw=\n {pformat(op_sc_kw)}')
+        print(colorama.Fore.CYAN + f'ablation_kw=\n {pformat(ablation_kw)}')
         sea_lg.create_or_upd_row(
             cfg.data.name, vital=True,
             m=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
