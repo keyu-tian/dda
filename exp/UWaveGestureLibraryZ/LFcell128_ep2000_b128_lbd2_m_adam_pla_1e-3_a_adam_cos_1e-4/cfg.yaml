@@ -1,0 +1,58 @@
+seed: ~
+aug_prob: 0.5
+epochs: &epochs 2000
+penalty_lambda: 2
+model_grad_clip: 16.0
+auger_grad_clip: 1.0
+init_model: False
+ckpt_path: ~
+
+data:
+    batch_size: 128
+    name: &set_name UWaveGestureLibraryZ
+    kwargs:
+        set_name: *set_name
+        tensor_data_root_path: /content/drive/MyDrive/datasets/UCRTensorData_CEEM
+
+model:
+    name: LF # LSTM, Res18, LF, MLP, MBV2
+    kwargs:
+#        input_size: [auto assigned]
+#        num_classes: [auto assigned]
+        hidden_dim: 128
+auger:
+    kwargs:
+        ~
+
+model_op:
+    name: adam
+    kwargs:
+#        params: [auto assigned]
+#        lr: [auto assigned]
+        weight_decay: 0
+model_sc:
+    name: plateau       # const, cos, plateau
+    kwargs:
+        mode: min
+        max_lr: 1e-3
+        epochs: *epochs
+        min_lr: 1e-5
+        patience_ratio: 0.03
+
+
+auger_op:
+    name: adam
+    kwargs:
+#        params: [auto assigned]
+#        lr: [auto assigned]
+        weight_decay: 0
+auger_sc:
+    name: cos         # const, cos, plateau
+    kwargs:
+        max_lr: 1e-4
+        epochs: *epochs
+
+
+
+
+
