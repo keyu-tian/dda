@@ -244,15 +244,13 @@ def build_op_and_sc(op_cfg, sc_cfg, iters_per_epoch, network, loaded_ckpt, load_
     return op, op_tag, sc, sc_tag
 
 
-def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader):
+def train_from_scratch(args, cfg, lg, tb_lg, sea_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader):
     # Initialize.
     # todo: set_seed
     ablation = cfg.get('ablation', '')
     no_aug = ablation == 'no_aug'
     random_aug = ablation == 'random_aug'
     random_feature = ablation == 'random_feature'
-    
-    sea_lg = SeatableLogger(args.exp_path) if rank == 0 else None
     
     model: torch.nn.Module
     auger: torch.nn.Module
@@ -520,10 +518,14 @@ def train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, trai
 
 def main():
     args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader = prepare()
+    sea_lg = SeatableLogger(args.exp_path) if rank == 0 else None
     if args.only_val:
         pass
     else:
-        train_from_scratch(args, cfg, lg, tb_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader)
+        try:
+            train_from_scratch(args, cfg, lg, tb_lg, sea_lg, world_size, rank, loaded_ckpt, train_loader, emd_loader, test_loader)
+        except:
+            sea_lg.create_or_upd_row(cfg.data.name, True, pr=-1)
 
 
 if __name__ == '__main__':
