@@ -8,11 +8,18 @@ import colorama
 from seatable_api import Base
 
 
-def terminate(terminate_file):
-    if os.path.exists(terminate_file):
-        os.remove(terminate_file)
-        print(colorama.Fore.CYAN + '[monitor] terminated.')
-        exit(-1)
+def terminate(progress: float):
+    # if os.path.exists(terminate_file):
+    #     os.remove(terminate_file)
+    #     print(colorama.Fore.CYAN + '[monitor] terminated.')
+    #     exit(-1)
+    if progress < 0:
+        print(colorama.Fore.RED + '[monitor] error: terminated.')
+        exit(-2)
+
+    if progress >= 0.9999999999:
+        print(colorama.Fore.CYAN + '[monitor] finished (100%).')
+        exit(0)
 
 
 def create_or_upd_explore_table(base, table_name, rid, dd):
@@ -44,9 +51,12 @@ def main():
     seatable_file = os.path.join(exp_path, 'seatable.json')
     terminate_file = f'{exp_path}.terminate'
     
+    waiting_times = 0
     while not os.path.exists(seatable_file):
         time.sleep(20)
-        terminate(terminate_file)
+        waiting_times += 1
+        if waiting_times > 100:
+            exit(-1)
     
     with open(seatable_file, 'r') as fp:
         last_dd = json.load(fp)
@@ -68,9 +78,9 @@ def main():
         if attempts == max_att:
             raise json.decoder.JSONDecodeError
         
-        final = dd['pr'] > 0.99999
+        final = dd['pr'] >= 0.9999999999
         if not final and not first and dd == last_dd:
-            terminate(terminate_file)
+            terminate(dd['pr'])
             continue
             
         first = False
@@ -90,7 +100,7 @@ def main():
         logging |= created
         if logging:
             print(colorama.Fore.LIGHTBLUE_EX + f'[monitor] {"created" if created else "updated"}')
-        terminate(terminate_file)
+        terminate(dd['pr'])
 
 
 if __name__ == '__main__':
