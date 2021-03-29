@@ -330,14 +330,14 @@ def train_from_scratch(args, cfg, lg, tb_lg, sea_lg, world_size, rank, loaded_ck
             if no_aug:
                 augmented = noi_inp + oth_inp
             elif random_aug:
-                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, None, cfg.aug_prob)
+                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, None, cfg.aug_prob, cfg.get('aug_no_B', False))
             else:
                 alpha = auger(feature)
                 ma, mb = alpha.mean(dim=0)
                 ma, mb = ma.item(), mb.item()
                 alpha_A_avg.update(ma)
                 alpha_B_avg.update(mb)
-                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_prob)
+                augmented = augment_and_aggregate_batch(noi_inp, oth_inp, alpha, cfg.aug_prob, cfg.get('aug_no_B', False))
             
             aug__t = time.time()
             logits = model(augmented)
