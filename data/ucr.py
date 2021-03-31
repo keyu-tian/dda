@@ -17,8 +17,8 @@ ALL_NAMES = {'_EMI_ratio0.2', '_EMI_ratio0.5', '_EMI_ratio0.8', 'ACSF1', 'Adiac'
 
 
 def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', num_workers=None):
-    tr_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TRAIN.tsv')
-    te_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "")}_TEST.tsv')
+    tr_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "").strip("_")}_TRAIN.tsv')
+    te_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "").strip("_")}_TEST.tsv')
 
     def get_dl(path):
         items = np.loadtxt(path, delimiter='\t', dtype=np.float32)
