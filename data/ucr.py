@@ -85,7 +85,7 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
         ['_EMI_ratio0.2', '_EMI_ratio0.5', '_EMI_ratio0.8']
     ][fold_idx]
 
-    if len(dnames) != 127:
+    if len(dnames) != 127 + 3:
         pprint.pprint(dnames)
         pprint.pprint(len(dnames))
         raise AttributeError
