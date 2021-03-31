@@ -20,7 +20,7 @@ if __name__ == '__main__':
         with open(path, 'w', encoding='utf-8') as fp:
             fp.write(
                 ctt.replace(
-                    'touch "${EXP_DIR}".terminate',
+                    '# # touch "${EXP_DIR}".terminate',
                     '# touch "${EXP_DIR}".terminate',
                 )
             )

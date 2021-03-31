@@ -15,4 +15,4 @@ echo ""
 echo -e "\033[36mat ${PWD#}/${EXP_DIR}\033[0m"
 echo -e "\033[36m${RESULT#*@}\033[0m"
 
-touch "${EXP_DIR}".terminate
+# touch "${EXP_DIR}".terminate
