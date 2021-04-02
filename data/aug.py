@@ -23,7 +23,8 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
     # sig_len = noise_batch[0].shape[-1]
     
     # alpha: (bs, 2)
-    if alpha is None:  # random aug
+    rand_aug = alpha is None
+    if rand_aug:  # random aug
         alpha = 0.05 * tc.rand((bs, 2), device=dev)
     assert alpha.ndim == 2 and alpha.shape[1] == 2
     
@@ -34,13 +35,16 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
     
     # sigma: (bs, 1, 1)
     sigma1, sigma2 = sigmas[:, 0:1].unsqueeze(-1), sigmas[:, 1:2].unsqueeze(-1)
-    std_norm1 = tc.randn((bs, 1, 1), device=dev)
-    std_norm2 = tc.randn((bs, 1, 1), device=dev) / 2
-    # A or B: (bs, 1, 1)
-    A = sigma1 * std_norm1 + 1
-    if no_B:
-        augmented = A * noise_batch
+    if rand_aug:
+        augmented = sigma1 * noise_batch + sigma2 / 2
     else:
+        std_norm1 = tc.randn((bs, 1, 1), device=dev)
+        std_norm2 = tc.randn((bs, 1, 1), device=dev) / 2
+        # A or B: (bs, 1, 1)
+        A = sigma1 * std_norm1 + 1
+        # if no_B:
+        #     augmented = A * noise_batch
+        # else:
         B = sigma2 * std_norm2
         augmented = A * noise_batch + B # todo: remove B?
     
