@@ -17,7 +17,7 @@ def emd(signal: np.ndarray, eemd=True, num_workers=None) -> Tuple[np.ndarray, np
     return np_noisy_IMF, np_sum_of_other_IMFs
 
 
-def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, aug_prob=0.5, no_B=False) -> tc.Tensor:
+def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor, alpha: tc.Tensor = None, aug_prob=0.5, rand_fea=False) -> tc.Tensor:
     # batch: (bs, 1, sig_len)
     bs, dev = noise_batch.shape[0], noise_batch.device
     # sig_len = noise_batch[0].shape[-1]
@@ -35,16 +35,13 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
     
     # sigma: (bs, 1, 1)
     sigma1, sigma2 = sigmas[:, 0:1].unsqueeze(-1), sigmas[:, 1:2].unsqueeze(-1)
-    if rand_aug:
+    if rand_fea:
         augmented = sigma1 * noise_batch + sigma2 / 2
     else:
         std_norm1 = tc.randn((bs, 1, 1), device=dev)
         std_norm2 = tc.randn((bs, 1, 1), device=dev) / 2
         # A or B: (bs, 1, 1)
         A = sigma1 * std_norm1 + 1
-        # if no_B:
-        #     augmented = A * noise_batch
-        # else:
         B = sigma2 * std_norm2
         augmented = A * noise_batch + B # todo: remove B?
     
