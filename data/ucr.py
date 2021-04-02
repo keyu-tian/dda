@@ -56,7 +56,7 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
         if i % 100 == 0:
             t = torch.from_numpy
             torch.save({
-                'start_i': i,
+                'start_i': i + 1,
                 'curr_emd': t(np.stack(tr_emd)).float(),
                 'ratio': avg_ratio,
             }, cache_fname)
