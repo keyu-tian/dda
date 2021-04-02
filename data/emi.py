@@ -28,7 +28,7 @@ def UCRfy_EMI_data(data_path: str, train: bool, train_ratio: float):
 
 
 if __name__ == '__main__':
-    fname = r'C:\Users\16333\Desktop\PyCharm\dda\data_256_500.txt'
+    fname = r'C:\Users\16333\Desktop\PyCharm\dda\data_512_1000.txt'
     for ratio in [0.2, 0.8, 0.5]:
         UCRfy_EMI_data(data_path=fname, train=True, train_ratio=ratio)
         UCRfy_EMI_data(data_path=fname, train=False, train_ratio=ratio)
