@@ -1,6 +1,7 @@
 import os
 import pprint
 import time
+import random
 from collections import defaultdict
 
 import numpy as np
@@ -16,7 +17,7 @@ from utils.misc import time_str
 ALL_NAMES = {'_EMI_ratio0.2', '_EMI_ratio0.5', '_EMI_ratio0.8', 'ACSF1', 'Adiac', 'AllGestureWiimoteX', 'AllGestureWiimoteY', 'AllGestureWiimoteZ', 'ArrowHead', 'BME', 'Beef', 'BeetleFly', 'BirdChicken', 'CBF', 'Car', 'Chinatown', 'ChlorineConcentration', 'CinCECGTorso', 'Coffee', 'Computers', 'CricketX', 'CricketY', 'CricketZ', 'Crop', 'DiatomSizeReduction', 'DistalPhalanxOutlineAgeGroup', 'DistalPhalanxOutlineCorrect', 'DistalPhalanxTW', 'DodgerLoopDay', 'DodgerLoopGame', 'DodgerLoopWeekend', 'ECG200', 'ECG5000', 'ECGFiveDays', 'EOGHorizontalSignal', 'EOGVerticalSignal', 'Earthquakes', 'ElectricDevices', 'EthanolLevel', 'FaceAll', 'FaceFour', 'FacesUCR', 'FiftyWords', 'Fish', 'FordA', 'FordB', 'FreezerRegularTrain', 'FreezerSmallTrain', 'Fungi', 'GestureMidAirD1', 'GestureMidAirD2', 'GestureMidAirD3', 'GesturePebbleZ1', 'GesturePebbleZ2', 'GunPoint', 'GunPointAgeSpan', 'GunPointMaleVersusFemale', 'GunPointOldVersusYoung', 'Ham', 'HandOutlines', 'Haptics', 'Herring', 'HouseTwenty', 'InlineSkate', 'InsectEPGRegularTrain', 'InsectEPGSmallTrain', 'InsectWingbeatSound', 'ItalyPowerDemand', 'LargeKitchenAppliances', 'Lightning2', 'Lightning7', 'Mallat', 'Meat', 'MedicalImages', 'MelbournePedestrian', 'MiddlePhalanxOutlineAgeGroup', 'MiddlePhalanxOutlineCorrect', 'MiddlePhalanxTW', 'MixedShapesRegularTrain', 'MoteStrain', 'NonInvasiveFetalECGThorax1', 'NonInvasiveFetalECGThorax2', 'OSULeaf', 'OliveOil', 'PLAID', 'PhalangesOutlinesCorrect', 'Phoneme', 'PickupGestureWiimoteZ', 'PigAirwayPressure', 'PigArtPressure', 'PigCVP', 'Plane', 'PowerCons', 'ProximalPhalanxOutlineAgeGroup', 'ProximalPhalanxOutlineCorrect', 'ProximalPhalanxTW', 'RefrigerationDevices', 'Rock', 'ScreenType', 'SemgHandGenderCh2', 'SemgHandMovementCh2', 'SemgHandSubjectCh2', 'ShakeGestureWiimoteZ', 'ShapeletSim', 'ShapesAll', 'SmallKitchenAppliances', 'SmoothSubspace', 'SonyAIBORobotSurface1', 'SonyAIBORobotSurface2', 'StarLightCurves', 'Strawberry', 'SwedishLeaf', 'Symbols', 'SyntheticControl', 'ToeSegmentation1', 'ToeSegmentation2', 'Trace', 'TwoLeadECG', 'TwoPatterns', 'UMD', 'UWaveGestureLibraryAll', 'UWaveGestureLibraryX', 'UWaveGestureLibraryY', 'UWaveGestureLibraryZ', 'Wafer', 'Wine', 'WordSynonyms', 'Worms', 'WormsTwoClass', 'Yoga'}
 
 
-def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', num_workers=None):
+def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, eemd_name='EEMD', num_workers=None):
     tr_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "").strip("_")}_TRAIN.tsv')
     te_path = os.path.join(root_path, dname, f'{dname.replace(" (1)", "").strip("_")}_TEST.tsv')
 
@@ -38,30 +39,46 @@ def __read_data(root_path, dname, normalize=True, eemd=True, eemd_name='EEMD', n
         te_data = (te_data - m) / s
     
     start_t = time.time()
-    avg_ratio = 0
+    avg_ratio = ckpt['curr_emd']
     tr_emd = []
+    for x in ckpt['curr_emd']:
+        tr_emd.append(x.numpy())
+    assert len(tr_emd) == ckpt['start_i']
+    
     bar = tqdm(tr_data)
-    for d in bar:
+    for i, d in enumerate(bar):
+        if i < ckpt['start_i']:
+            continue
         n, o = emd(d, eemd=eemd, num_workers=num_workers)
         ratio = 100 * np.abs(np.where(n > 0.1, n, np.zeros_like(n))).mean() / np.abs(d).mean()
         avg_ratio += ratio
         tr_emd.append(np.stack((n, o)))
+        if i % 100 == 0:
+            t = torch.from_numpy
+            torch.save({
+                'start_i': i,
+                'curr_emd': t(np.stack(tr_emd)).float(),
+                'ratio': avg_ratio,
+            }, cache_fname)
         # bar.set_description(f'[{dname}]: emd, large_ratio={100 * (n > 0.2).sum() / n.shape[0]:.2f}%')
         bar.set_description(f'[{dname}.{eemd_name}], ratio={ratio:.2f}%')
+
     avg_ratio /= tr_data.shape[0]
     tr_emd = np.stack(tr_emd)
     print(f'{time_str()}[{dname}.{eemd_name}] cost={time.time() - start_t:.2f}s, avg_ratio={avg_ratio:.2f}%')   # 4 worker: 23s; no parallel: 12s ?
     
     t = torch.from_numpy
-    return {
+    desc = {
         'train_data': t(tr_data).float(),
         'train_emd': t(tr_emd).float(),
         'train_label': t(tr_labels).long(),
         'test_data': t(te_data),
-        'test_label': t(te_labels),
+        'test_label': t(te_labels).long(),
         'num_classes': num_classes,
         'ratio': avg_ratio,
-    }, avg_ratio
+    }
+    torch.save(desc, cache_fname)
+    return desc, avg_ratio
 
 
 def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
@@ -100,12 +117,14 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
             continue
         for eemd, name in zip([True, False], emd_names):
             cache_fname = os.path.join(f'{cached_root}_{name}', f'{dname}.pth')
+            ckpt = {'start_i': 0, 'curr_emd': [], 'curr_ratio': 0}
             if os.path.exists(cache_fname):
+                ckpt = torch.load(cache_fname)
+            if 'start_i' not in ckpt:
                 print(f'{time_str()}[{dname}.{name}] already cached')
             else:
-                desc, ratio = __read_data(root_path, org_dname, normalize=True, eemd=eemd, eemd_name=name, num_workers=num_workers)
+                desc, ratio = __read_data(ckpt, root_path, org_dname, cache_fname, normalize=True, eemd=eemd, eemd_name=name, num_workers=num_workers)
                 ratios[name] += ratio
-                torch.save(desc, cache_fname)
                 print(f'{time_str()}[{dname}.{name}] '
                       f'train_data.shape={tuple(desc["train_data"].shape)}, '
                       f'train_emd_data.shape={tuple(desc["train_emd"].shape)}, '
