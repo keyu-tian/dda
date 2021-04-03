@@ -39,7 +39,10 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
         te_data = (te_data - m) / s
     
     start_t = time.time()
-    avg_ratio = ckpt['curr_emd']
+    avg_ratio = ckpt['ratio']
+    if isinstance(avg_ratio, torch.Tensor):
+        avg_ratio = 0   # bugfix...
+        
     tr_emd = []
     for x in ckpt['curr_emd']:
         tr_emd.append(x.numpy())
