@@ -53,7 +53,7 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
         if i < ckpt['start_i']:
             continue
         n, o = emd(d, eemd=eemd, num_workers=num_workers)
-        ratio = 100 * np.abs(np.where(n > 0.1, n, np.zeros_like(n))).mean() / np.abs(d).mean()
+        ratio = 100 * (np.abs(np.where(n > 0.1, n, np.zeros_like(n))).mean() / np.abs(d).mean()).item()
         avg_ratio += ratio
         tr_emd.append(np.stack((n, o)))
         if i % 100 == 0:
@@ -120,7 +120,7 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
             continue
         for eemd, name in zip([True, False], emd_names):
             cache_fname = os.path.join(f'{cached_root}_{name}', f'{dname}.pth')
-            ckpt = {'start_i': 0, 'curr_emd': [], 'curr_ratio': 0}
+            ckpt = {'start_i': 0, 'curr_emd': [], 'ratio': 0}
             if os.path.exists(cache_fname):
                 ckpt = torch.load(cache_fname)
             if 'start_i' not in ckpt:
