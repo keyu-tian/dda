@@ -58,6 +58,8 @@ class SeatableLogger(object):
         exp_dirname, datetime_dirname = self.exp_path.split(os.path.sep)[-2:]
         dd['exp'] = exp_dirname
         
+        if dd.get('pr', 0) == -1 and 'pr' in self.dd:
+            dd['pr'] = -self.dd['pr']
         self.dd.update(dd)
         with open(os.path.join(self.exp_path, 'seatable.json'), 'w') as fp:
             json.dump({'table_name': table_name, 'dd': self.dd}, fp)
