@@ -1,7 +1,8 @@
 seed: ~
+ablation: random_aug
 aug_prob: 0.5
-epochs: &epochs 2000
-penalty_lambda: 0.5
+epochs: &epochs 500
+penalty_lambda: 2
 model_grad_clip: 16.0
 auger_grad_clip: 1.0
 init_model: False
@@ -9,7 +10,7 @@ ckpt_path: ~
 
 data:
     batch_size: 128
-    name: &set_name _EMI_ratio0.2
+    name: &set_name _EMI_ratio0.5
     kwargs:
         set_name: *set_name
         tensor_data_root_path: /content/drive/MyDrive/datasets/UCRTensorData_CEEM
@@ -19,7 +20,7 @@ model:
     kwargs:
 #        input_size: [auto assigned]
 #        num_classes: [auto assigned]
-        hidden_dim: 128
+        hidden_dim: 32
 auger:
     kwargs:
         ~
