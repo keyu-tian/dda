@@ -26,7 +26,7 @@ auger:
         ~
 
 model_op:
-    name: adam
+    name: sgd
     kwargs:
 #        params: [auto assigned]
 #        lr: [auto assigned]
@@ -35,9 +35,9 @@ model_sc:
     name: plateau       # const, cos, plateau
     kwargs:
         mode: min
-        max_lr: 1e-3
+        max_lr: 1e-4
         epochs: *epochs
-        min_lr: 1e-5
+        min_lr: 1e-6
         patience_ratio: 0.03
 
 
