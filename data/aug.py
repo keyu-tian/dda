@@ -36,6 +36,8 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
     # sigma: (bs, 1, 1)
     sigma1, sigma2 = sigmas[:, 0:1].unsqueeze(-1), sigmas[:, 1:2].unsqueeze(-1)
     if rand_fea:
+        sigma1 *= 2
+        sigma2 *= 2
         augmented = sigma1 * noise_batch + sigma2 / 2
     else:
         std_norm1 = tc.randn((bs, 1, 1), device=dev)

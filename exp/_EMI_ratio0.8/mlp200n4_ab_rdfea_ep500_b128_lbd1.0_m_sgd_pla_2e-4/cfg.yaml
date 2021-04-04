@@ -1,5 +1,5 @@
 seed: ~
-ablation: random_aug # random_aug
+ablation: random_feature
 aug_prob: 0.5
 epochs: &epochs 500
 penalty_lambda: 1.0
