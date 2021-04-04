@@ -20,6 +20,8 @@ model:
     kwargs:
 #        input_size: [auto assigned]
 #        num_classes: [auto assigned]
+        channel_1: 64
+        channel_2: 64
         channel_3: 32
         hidden_dim: 16
 auger:
