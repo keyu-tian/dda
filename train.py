@@ -271,7 +271,7 @@ def train_from_scratch(args, cfg, lg, tb_lg, sea_lg, world_size, rank, loaded_ck
         sea_lg.create_or_upd_row(
             cfg.data.name, vital=True,
             m=cfg.model.name, ep=cfg.epochs, bs=cfg.data.batch_size,
-            p=cfg.aug_prob, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}',
+            p=cfg.aug_prob, mlr=f'{cfg.model_sc.kwargs.max_lr:.1g}', alr=f'{cfg.auger_sc.kwargs.max_lr:.1g}', aclp=f'{cfg.auger_grad_clip:.1g}',
             pr=0, rem=0, beg_t=datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S'),
             **lambda_kw, **op_sc_kw, **ablation_kw,
         )
