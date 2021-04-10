@@ -2,9 +2,9 @@ seed: ~
 #ablation: no_aug # random_aug
 aug_prob: 0.5
 epochs: &epochs 500
-penalty_lambda: 0.02
+penalty_lambda: 0.05
 model_grad_clip: 4.0
-auger_grad_clip: 0.003
+auger_grad_clip: 0.005
 init_model: False
 ckpt_path: ~
 
