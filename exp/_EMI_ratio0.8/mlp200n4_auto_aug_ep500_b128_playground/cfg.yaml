@@ -2,7 +2,7 @@ seed: ~
 #ablation: no_aug # random_aug
 aug_prob: 0.5
 epochs: &epochs 500
-penalty_lambda: 0.02
+penalty_lambda: 0.1
 model_grad_clip: 4.0
 auger_grad_clip: 0.003
 init_model: False
@@ -48,7 +48,7 @@ auger_op:
 auger_sc:
     name: cos         # const, cos, plateau
     kwargs:
-        max_lr: 5e-2
+        max_lr: 1e-1
         epochs: *epochs
 
 
