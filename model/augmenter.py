@@ -13,8 +13,8 @@ class Augmenter(nn.Module):
 
     def forward(self, fea):
         # alpha: (bs, 2)
-        alpha = self.fc(fea).sigmoid() / 5
-        return alpha   # [0, 0.2]
+        alpha = self.fc(fea).sigmoid() * 0.3
+        return alpha   # [0, 0.3]
 
 
 if __name__ == '__main__':  # testing
