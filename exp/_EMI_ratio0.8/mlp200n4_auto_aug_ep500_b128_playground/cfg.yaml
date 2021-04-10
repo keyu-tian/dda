@@ -1,10 +1,10 @@
 seed: ~
-#ablation: random_aug # random_aug
+#ablation: no_aug # random_aug
 aug_prob: 0.5
 epochs: &epochs 500
-penalty_lambda: 0.
+penalty_lambda: 0.05
 model_grad_clip: 4.0
-auger_grad_clip: 1.0
+auger_grad_clip: 0.002
 init_model: False
 ckpt_path: ~
 
@@ -40,7 +40,7 @@ model_sc:
 
 
 auger_op:
-    name: adam
+    name: sgd
     kwargs:
 #        params: [auto assigned]
 #        lr: [auto assigned]
@@ -48,7 +48,7 @@ auger_op:
 auger_sc:
     name: cos         # const, cos, plateau
     kwargs:
-        max_lr: 1e-3
+        max_lr: 5e-2
         epochs: *epochs
 
 
