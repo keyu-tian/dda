@@ -40,8 +40,8 @@ def augment_and_aggregate_batch(noise_batch: tc.Tensor, others_batch: tc.Tensor,
         sigma2 *= 2
         augmented = sigma1 * noise_batch + sigma2 / 2
     else:
-        std_norm1 = tc.randn((bs, 1, 1), device=dev).clamp(-3, 3)
-        std_norm2 = tc.randn((bs, 1, 1), device=dev).clamp(-3, 3) / 2
+        std_norm1 = tc.randn((bs, 1, 1), device=dev).clamp(-5, 5)
+        std_norm2 = tc.randn((bs, 1, 1), device=dev).clamp(-5, 5) / 2
         # A or B: (bs, 1, 1)
         A = sigma1 * std_norm1 + 1
         B = sigma2 * std_norm2
