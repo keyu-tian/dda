@@ -11,9 +11,10 @@ def emd(signal: np.ndarray, eemd=True, num_workers=None) -> Tuple[np.ndarray, np
     if num_workers is not None:
         kw['parallel'] = True
         kw['processes'] = num_workers
-    np_IMFs = (EEMD if eemd else CEEMDAN)(**kw)(signal) # CEEMDAN(parallel=True, processes=4)
+    E = (EEMD if eemd else CEEMDAN)(**kw)
+    np_IMFs = E(signal) # CEEMDAN(parallel=True, processes=4)
     assert len(np_IMFs) > 1
-    np_noisy_IMF, np_sum_of_other_IMFs = np_IMFs[0], sum(np_IMFs[1:])
+    np_noisy_IMF, np_sum_of_other_IMFs = np_IMFs[0], np_IMFs[1:].sum(axis=0) + E.residue
     return np_noisy_IMF, np_sum_of_other_IMFs
 
 

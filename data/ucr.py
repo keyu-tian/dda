@@ -47,7 +47,9 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
     for x in ckpt['curr_emd']:
         tr_emd.append(x.numpy())
     assert len(tr_emd) == ckpt['start_i']
-    
+
+    t = torch.from_numpy
+    t_te_data, t_te_label = t(te_data).float(), t(te_labels).long()
     bar = tqdm(tr_data)
     for i, d in enumerate(bar):
         if i < ckpt['start_i']:
@@ -57,10 +59,12 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
         avg_ratio += ratio
         tr_emd.append(np.stack((n, o)))
         if i % 100 == 0:
-            t = torch.from_numpy
             torch.save({
+                'test_data': t_te_data,
+                'test_label': t_te_label,
                 'start_i': i + 1,
                 'curr_emd': t(np.stack(tr_emd)).float(),
+                'num_classes': num_classes,
                 'ratio': avg_ratio,
             }, cache_fname)
         # bar.set_description(f'[{dname}]: emd, large_ratio={100 * (n > 0.2).sum() / n.shape[0]:.2f}%')
@@ -75,8 +79,8 @@ def __read_data(ckpt, root_path, dname, cache_fname, normalize=True, eemd=True, 
         'train_data': t(tr_data).float(),
         'train_emd': t(tr_emd).float(),
         'train_label': t(tr_labels).long(),
-        'test_data': t(te_data),
-        'test_label': t(te_labels).long(),
+        'test_data': t_te_data,
+        'test_label': t_te_label,
         'num_classes': num_classes,
         'ratio': avg_ratio,
     }
@@ -100,14 +104,15 @@ def cache_UCR(root_path: str, fold_idx: int, num_workers=None):
 
     fold = [
         ['Worms', 'NonInvasiveFetalECGThorax1', 'ECGFiveDays', 'Computers', 'UWaveGestureLibraryX', 'Earthquakes', 'SemgHandSubjectCh2', 'Phoneme', 'SonyAIBORobotSurface2', 'PickupGestureWiimoteZ', 'ArrowHead', 'ToeSegmentation1', 'GunPoint', 'FiftyWords', 'InsectWingbeatSound', 'ElectricDevices', 'Beef', 'DiatomSizeReduction', 'CinCECGTorso', 'MiddlePhalanxOutlineCorrect', 'EOGVerticalSignal', 'PhalangesOutlinesCorrect', 'PigAirwayPressure', 'GunPointMaleVersusFemale', 'OSULeaf', 'SyntheticControl', 'GunPointAgeSpan', 'Ham', 'MoteStrain', 'HandOutlines', 'Mallat', 'Chinatown', 'SonyAIBORobotSurface1', 'EthanolLevel', 'MelbournePedestrian', 'FordB', 'MixedShapesRegularTrain', 'PigCVP', 'FreezerRegularTrain', 'GestureMidAirD2', 'FaceAll', 'Wafer'],
-        ['ACSF1', 'Meat', 'DistalPhalanxOutlineCorrect', 'SmallKitchenAppliances', 'DistalPhalanxTW', 'AllGestureWiimoteX', 'MiddlePhalanxOutlineAgeGroup', 'Strawberry', 'ToeSegmentation2', 'Plane', 'InsectEPGRegularTrain', 'HouseTwenty', 'OliveOil', 'UWaveGestureLibraryY', 'ProximalPhalanxOutlineCorrect', 'Coffee', 'Yoga', 'ChlorineConcentration', 'WordSynonyms', 'PLAID', 'Wine', 'Trace', 'UWaveGestureLibraryZ', 'SmoothSubspace', 'ECG200', 'ECG5000', 'InsectEPGSmallTrain', 'Herring', 'Fungi', 'UWaveGestureLibraryAll', 'SwedishLeaf', 'DodgerLoopDay', 'Crop', 'NonInvasiveFetalECGThorax2', 'FacesUCR', 'PigArtPressure', 'BeetleFly', 'BME', 'Adiac', 'FaceFour', 'FreezerSmallTrain', 'AllGestureWiimoteY', 'GesturePebbleZ2'],
+        ['Adiac', 'ACSF1', 'Meat', 'DistalPhalanxOutlineCorrect', 'SmallKitchenAppliances', 'DistalPhalanxTW', 'AllGestureWiimoteX', 'MiddlePhalanxOutlineAgeGroup', 'Strawberry', 'ToeSegmentation2', 'Plane', 'InsectEPGRegularTrain', 'HouseTwenty', 'OliveOil', 'UWaveGestureLibraryY', 'ProximalPhalanxOutlineCorrect', 'Coffee', 'Yoga', 'ChlorineConcentration', 'WordSynonyms', 'PLAID', 'Wine', 'Trace', 'UWaveGestureLibraryZ', 'SmoothSubspace', 'ECG200', 'ECG5000', 'InsectEPGSmallTrain', 'Herring', 'Fungi', 'UWaveGestureLibraryAll', 'SwedishLeaf', 'DodgerLoopDay', 'Crop', 'NonInvasiveFetalECGThorax2', 'FacesUCR', 'PigArtPressure', 'BeetleFly', 'BME', 'FaceFour', 'FreezerSmallTrain', 'AllGestureWiimoteY', 'GesturePebbleZ2'],
         ['ScreenType', 'StarLightCurves', 'CricketX', 'MiddlePhalanxTW', 'FordA', 'CBF', 'LargeKitchenAppliances', 'BirdChicken', 'ShakeGestureWiimoteZ', 'WormsTwoClass', 'Rock', 'DodgerLoopGame', 'GestureMidAirD3', 'SemgHandGenderCh2', 'ProximalPhalanxTW', 'Haptics', 'Lightning7', 'DistalPhalanxOutlineAgeGroup', 'EOGHorizontalSignal', 'TwoPatterns', 'Lightning2', 'CricketY', 'CricketZ', 'PowerCons', 'AllGestureWiimoteZ', 'ProximalPhalanxOutlineAgeGroup', 'TwoLeadECG', 'ShapeletSim', 'GestureMidAirD1', 'InlineSkate', 'MedicalImages', 'DodgerLoopWeekend', 'RefrigerationDevices', 'Symbols', 'SemgHandMovementCh2', 'ShapesAll', 'GesturePebbleZ1', 'Car', 'GunPointOldVersusYoung', 'Fish', 'UMD', 'ItalyPowerDemand'],
         ['_EMI_ratio0.2'],
         ['_EMI_ratio0.5'],
         ['_EMI_ratio0.8'],
+        ['_ISOLET'],
     ][fold_idx]
 
-    if len(dnames) != 127 + 3:
+    if len(dnames) != 127 + 3 + 1:
         pprint.pprint(dnames)
         pprint.pprint(len(dnames))
         raise AttributeError
